@@ -2,14 +2,21 @@
 
 **English** · [中文](../zh/root-recipe.md)
 
-No root image is included. The success root is a **pulled v14 root** with the
-boot22 first-boot state and the ICL block patch; its artifact hash is
-`985c30fc...`. This page is a recipe, not an installer, and it does not
-automate the 16 GiB root.
+No root image is included. The success root (A) is a **pulled v14 root** with
+the boot22 first-boot state and the ICL block patch; its artifact hash is
+`e698339d...`. The pre-boot22 pulled+seeded root (B) is `985c30...`; the clean
+mkiosroot base (C) is `34c2882d...`. The boot22 diff (62,490 4K blocks,
+external) maps B -> A. This page is a recipe, not an installer, and it does
+not automate the 16 GiB root.
 
 ## What the root is
 
 - An HFS+ image of the iPhone X iOS 16.7.16 (20H392) userland.
+- A: post-boot22 success snapshot, with the ICL NOP and the first-boot state.
+- B: pre-boot22 pulled+seeded root, with the ICL original block; the boot22
+  diff maps B -> A.
+- C: clean mkiosroot + tweaks base; C alone may stop at LS/MG; the device
+  first boot/seed is still needed.
 - The v14 lineage: a pulled `/private/var` + fsck + `DataMigration.plist`
   (`LastSystemVersion=20H392`), plus the transport tweaks.
 - The boot22 diff: 62,490 changed 4K blocks (244 MiB), including the first-boot
@@ -34,7 +41,9 @@ automate the 16 GiB root.
 2. Copy the userland; apply the v14 tweaks and seed the containers/ByHost/
    `data_ark`.
 3. First boot on the device to create the first-boot state; freeze the root
-   image. This step is device-side and is not automated here.
+   image. For the success state, start from B with the ICL NOP applied; the
+   resulting A' is not expected to hash-match A. This step is device-side and
+   is not automated here.
 4. Patch the ICL 4K block with `tools/image/icl_nop.py`; verify the original
    and patched block hashes.
 5. Write the frozen root to `iosroot` with TWRP raw `dd`; verify the SHA.
@@ -43,6 +52,8 @@ automate the 16 GiB root.
 ## Limits
 
 - No 16 GiB root image or diff data is in this repo.
+- A, B and C are external states. B and C full images are not retained; A is
+  the success snapshot.
 - The root image is not distributable; users must supply it.
 - The exact first-boot state may require a device run; a host-only recipe
   cannot recreate the pulled phone state.

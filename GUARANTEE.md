@@ -45,11 +45,22 @@ configuration.
 | Reference kernel | `b38fca5f...` | the kernel that booted |
 | CI rebuild | `3ceb9b34...` | pre-public run; not flashed |
 | Boot image | `94c639d1...` | external; not in the repo |
-| Root image | `985c30fc...` | external; recorded 2026-10-21; verify before use |
+| Root image (A) | `e698339d...` | external; success snapshot; verify before use |
 | ICL original block | `ae317804...` | restore path |
 | ICL patched block | `4a489542...` | bypass |
 | Boot args | `config/0084-boot.cmdline` | exact boot23 cmdline |
 | Success criterion | first boot ~60 s (58 s measured); warm reboot ~22 s; swipe to home; animations | author's boot22/boot23 |
+
+Root states (all external; full images are not in the repo):
+
+| State | SHA-256 | Meaning |
+|---|---|---|
+| A success | `e698339d...` | post-boot22; ICL NOP + first-boot state |
+| B pre-boot22 | `985c30...` | pulled+seeded; ICL original; the boot22 diff maps B -> A |
+| C clean base | `34c2882d...` | mkiosroot + tweaks; first boot/seed needed |
+
+The success bundle is A. The previous pin named B; it was corrected on
+2026-10-22 after a read-only root audit.
 
 Full hashes:
 
@@ -59,7 +70,9 @@ patchset   de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
 kernel     b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
 ci kernel  3ceb9b3490f8c8ecaa74348c3c5cb02d7302d0ec7f87006fe8354e9d2011a831
 boot       94c639d1f45197718c62bd09c32c72b39710ba23de60f4a04bba96014bce1cb6
-root       985c30fcca28cb79e6ad6d30a1ff4b4b6b7306b69d6e480cd7cccf4fb5ca11e3
+root A     e698339d0e228609c2d98f16ae8dd44a5149f2ccc19a44b98d5d08845c53f96f
+root B     985c30fcca28cb79e6ad6d30a1ff4b4b6b7306b69d6e480cd7cccf4fb5ca11e3
+root C     34c2882d3b722e53c9755dad3b74284d6ebba6f00256838d407ba3694b1a456d
 icl orig   ae3178046fe7cb9e08291c39dc4773429be26c35472c6fbd9135d5f2a225fd73
 icl pat    4a4895422dcec766b90b65c067ecb06ef8fd3e346c03ee7e2464a85f62a73b74
 ```

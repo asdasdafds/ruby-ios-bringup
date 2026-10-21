@@ -42,11 +42,21 @@ stock LK -> XNU 8796 -> iOS 16.7.16 用户态
 | 原始内核 | `b38fca5f...` | 实际启动的那颗 |
 | CI 重建内核 | `3ceb9b34...` | 公开前 run；未刷机 |
 | boot 镜像 | `94c639d1...` | 外部；不在仓库 |
-| root 镜像 | `985c30fc...` | 外部；2026-10-21 记录；用前复核 |
+| root 镜像（A） | `e698339d...` | 外部；成功快照；用前复核 |
 | ICL 原块 | `ae317804...` | 还原路径 |
 | ICL 补丁块 | `4a489542...` | 绕过 |
 | 启动参数 | `config/0084-boot.cmdline` | boot23 实际 cmdline |
 | 成功判据 | 首次启动约 60 秒（实测 58 秒）；热重启约 22 秒；上滑到桌面；动画正常 | 作者 boot22/boot23 |
+
+root 状态（全部为外部工件；完整镜像不在仓库）：
+
+| 状态 | SHA-256 | 含义 |
+|---|---|---|
+| A 成功快照 | `e698339d...` | boot22 之后；ICL NOP + 首启状态 |
+| B 首启前 | `985c30...` | pulled+seeded；ICL 原块；boot22 diff 把 B -> A |
+| C clean 基础 | `34c2882d...` | mkiosroot + tweaks；还需要首启/seed |
+
+success bundle 是 A。旧 pin 写的是 B；2026-10-22 只读 root 审计后修正。
 
 完整 hash：
 
@@ -56,7 +66,9 @@ patchset   de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
 kernel     b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
 ci kernel  3ceb9b3490f8c8ecaa74348c3c5cb02d7302d0ec7f87006fe8354e9d2011a831
 boot       94c639d1f45197718c62bd09c32c72b39710ba23de60f4a04bba96014bce1cb6
-root       985c30fcca28cb79e6ad6d30a1ff4b4b6b7306b69d6e480cd7cccf4fb5ca11e3
+root A     e698339d0e228609c2d98f16ae8dd44a5149f2ccc19a44b98d5d08845c53f96f
+root B     985c30fcca28cb79e6ad6d30a1ff4b4b6b7306b69d6e480cd7cccf4fb5ca11e3
+root C     34c2882d3b722e53c9755dad3b74284d6ebba6f00256838d407ba3694b1a456d
 icl orig   ae3178046fe7cb9e08291c39dc4773429be26c35472c6fbd9135d5f2a225fd73
 icl pat    4a4895422dcec766b90b65c067ecb06ef8fd3e346c03ee7e2464a85f62a73b74
 ```

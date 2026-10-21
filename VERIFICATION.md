@@ -74,6 +74,25 @@ packaging.
 The reference kernel/image SHAs in `config/0084.env` come from the original
 build.
 
+## Root state audit (2026-10-22)
+
+Read-only audit of the external frozen root image; no device writes.
+
+| Check | Result |
+|---|---|
+| A success snapshot SHA-256 | `e698339d...` |
+| B pre-boot22 SHA-256 | `985c30...` |
+| C clean base SHA-256 | `34c2882d...` |
+| boot22 block set | 62,490 4K blocks; all match post-boot22 |
+| whole-image CRC scan vs pre-boot22 baseline | exactly 62,490 changed; 0 extra, 0 missing |
+| pre-boot22 reconstruction | replacing those blocks with the recorded original blocks yields `985c30...` |
+| ICL block 2438140 | `4a489542...` (NOP) |
+| structural spot-check | launchd, dyld, systembag, containers, ByHost, LastSystemVersion=20H392 |
+
+The local frozen root is A. The previous `ROOT_SHA256=985c30...` named B
+(pre-boot22); it was corrected to A on 2026-10-22. Hashes only; no personal
+paths or device identifiers.
+
 ## Guarantee status (2026-10-21)
 
 - **G1 — host/build:** verified. A fresh clone passes `verify-local.py`; the
