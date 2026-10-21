@@ -17,6 +17,8 @@ not automate the 16 GiB root.
   diff maps B -> A.
 - C: clean mkiosroot + tweaks base; C alone may stop at LS/MG; the device
   first boot/seed is still needed.
+- A': the first-boot snapshot from B+NOP; one run, not stable across first
+  boots. A new first boot is a new state (A'').
 - The v14 lineage: a pulled `/private/var` + fsck + `DataMigration.plist`
   (`LastSystemVersion=20H392`), plus the transport tweaks.
 - The boot22 diff: 62,490 changed 4K blocks (244 MiB), including the first-boot
@@ -53,8 +55,10 @@ not automate the 16 GiB root.
 
 - No 16 GiB root image or diff data is in this repo.
 - A, B and C are external states. B and C full images are not retained; A is
-  the success snapshot.
+  the success snapshot; A' is a first-boot snapshot.
 - The root image is not distributable; users must supply it.
+- Pre-boot image hashes are fixed; post-boot live-root/ring/log hashes are
+  volatile. See the "Hash stability" section of `GUARANTEE.md`.
 - The exact first-boot state may require a device run; a host-only recipe
   cannot recreate the pulled phone state.
 - No device regression tests were run for this packaging.

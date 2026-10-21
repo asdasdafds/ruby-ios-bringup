@@ -15,6 +15,8 @@ root。
 - B：boot22 之前 pulled+seeded root，含 ICL 原块；boot22 diff 把 B -> A。
 - C：clean mkiosroot + tweaks 基础；C 单独启动可能停在 LS/MG，还需要设备
   首启/seed。
+- A'：从 B+NOP 首启得到的快照；一次 run，不同首启会不同。新的首启是新状态
+  （A''）。
 - v14 谱系：pulled `/private/var` + fsck + `DataMigration.plist`
   （`LastSystemVersion=20H392`）加传输 tweaks。
 - boot22 diff：62,490 个 4K 块（244 MiB），包含首启状态；diff 数据不在仓库。
@@ -45,8 +47,11 @@ root。
 ## 限制
 
 - 仓库不含 16 GiB root 或 diff 数据。
-- A/B/C 都是外部状态。B 和 C 的完整镜像不保留；A 是成功快照。
+- A/B/C 都是外部状态。B 和 C 的完整镜像不保留；A 是成功快照；A' 是首启
+  快照。
 - root 镜像不可分发；使用者自备。
+- 启动前镜像 hash 固定；启动后的 live-root/ring/日志 hash 易变。见
+  `GUARANTEE.zh.md` 的「hash 稳定性」。
 - 精确首启状态可能需要一次设备运行；纯 host recipe 无法重建 pulled 手机
   状态。
 - 这次打包没有做设备回归测试。

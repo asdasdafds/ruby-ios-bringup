@@ -63,7 +63,9 @@ python tools/image/boot_layout.py --image <boot.img> \
 它与原 0084 镜像布局等价，但不是字节一致。原镜像用了 `os.urandom` filler；
 重建镜像请用 `boot_layout.py`，不要用镜像 SHA。
 
-这次打包没有做设备回归测试；进桌面是历史结果（boot23），CI 只覆盖构建。
+2026-10-22：B+NOP 首启 -> A' 和 CI kernel 启动已在作者设备上跑过。CI kernel
+用了 payload ref `33852e3`，不是 pin `5095ac1`。A' 是首启快照；第二台/
+干净室仍未做。
 
 ## 打包 boot 镜像
 
@@ -87,7 +89,7 @@ python tools/image/boot_layout.py --image <boot.img> \
 adb reboot bootloader
 fastboot devices
 fastboot flash boot_a <boot.img>
-fastboot --set-active=a
+# slot _a 已激活；旧 fastboot 可能不认 --set-active
 fastboot reboot
 ```
 
@@ -104,12 +106,16 @@ fastboot reboot
 
 ## 预期现象
 
-- 打补丁后的首次启动约 58 秒；热重启约 22 秒（boot23）。上游首启 4–5 分钟。
+- 打补丁后的首次启动约 58 秒；热重启约 22 秒（boot23）。2026-10-22 的
+  B+NOP 首启观察到 22 秒到锁屏、30 秒 autoswipe（cache-warm；观察值，不是
+  固定时序）。上游首启 4–5 分钟。
 - 锁屏：日期从 12 月 31 日开始（无 RTC/NTP），时钟会走；有相机图标和
   Home Bar。
 - 合成上滑解锁到桌面，动画正常。
 - 可能有黑壁纸、`Waiting...` widget、Messages badge。
 - 触摸/按键/USB/Wi-Fi/GPU/RTC 未通。
+- 启动前镜像 hash 固定；启动后的 live-root/ring/日志 hash 和时序易变（见
+  `GUARANTEE.zh.md` 的「hash 稳定性」）。
 
 ## 验证
 

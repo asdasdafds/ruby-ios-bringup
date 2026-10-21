@@ -2,10 +2,10 @@
 
 **English** · [中文](GUARANTEE.zh.md)
 
-**Status 2026-10-21 — documentation-level (theoretical) guarantee.**
-This is a documented expectation for the success path, not an independently
-reproduced device guarantee. Detailed test guarantees are deferred due to time
-and effort.
+**Status 2026-10-22 — documented recipe with one-unit device evidence.**
+B+NOP first boot -> A' and a CI kernel boot were observed on the author's unit.
+This is not an independently reproduced second-unit or clean-room guarantee.
+Detailed test guarantees are deferred.
 
 ## Scope
 
@@ -29,8 +29,8 @@ Given all of the following:
 - the documented procedure in `docs/en/09-reproduce.md` and
   `docs/en/05-userland.md`;
 
-the success state is **expected** to reproduce. "Expected" is the theoretical
-part: no second-unit or clean-room device validation has been performed.
+the success state is **expected** to reproduce. One author's unit was tested on
+2026-10-22; no second-unit or clean-room device validation has been performed.
 
 If any hash differs, this guarantee does not apply; treat it as a different
 configuration.
@@ -43,13 +43,13 @@ configuration.
 | Patchset | `de1824c2...` | 87 files; recipe output |
 | 0010/0012 change | `1edb6633...` | small baseline patch |
 | Reference kernel | `b38fca5f...` | the kernel that booted |
-| CI rebuild | `3ceb9b34...` | pre-public run; not flashed |
+| CI rebuild (2026-10-22) | `8a80855d...` | run `39648068844`; booted; payload tool ref `33852e3` |
 | Boot image | `94c639d1...` | external; not in the repo |
 | Root image (A) | `e698339d...` | external; success snapshot; verify before use |
 | ICL original block | `ae317804...` | restore path |
 | ICL patched block | `4a489542...` | bypass |
 | Boot args | `config/0084-boot.cmdline` | exact boot23 cmdline |
-| Success criterion | first boot ~60 s (58 s measured); warm reboot ~22 s; swipe to home; animations | author's boot22/boot23 |
+| Success criterion | first boot ~60 s (58 s measured); warm reboot ~22 s; 2026-10-22 B+NOP first boot observed 22 s / 30 s; swipe to home; animations | author's boot22/boot23 and 2026-10-22 run |
 
 Root states (all external; full images are not in the repo):
 
@@ -58,9 +58,11 @@ Root states (all external; full images are not in the repo):
 | A success | `e698339d...` | post-boot22; ICL NOP + first-boot state |
 | B pre-boot22 | `985c30...` | pulled+seeded; ICL original; the boot22 diff maps B -> A |
 | C clean base | `34c2882d...` | mkiosroot + tweaks; first boot/seed needed |
+| A' first boot | `55e2ab2c...` | one B+NOP first-boot snapshot; new first boots differ |
 
 The success bundle is A. The previous pin named B; it was corrected on
-2026-10-22 after a read-only root audit.
+2026-10-22 after a read-only root audit. A' is a first-boot snapshot, not a
+stable pin; post-boot hashes are volatile.
 
 Full hashes:
 
@@ -69,10 +71,14 @@ patchset   de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
 0010/0012  1edb66332bb4daa8b1abcd6c4de77a0e88ed9c7e9bb4a2a7045a2696e53ab338
 kernel     b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
 ci kernel  3ceb9b3490f8c8ecaa74348c3c5cb02d7302d0ec7f87006fe8354e9d2011a831
+ci kernel2 8a80855d1f615cf72f6ebb9f6213d0d55c8f799ad80286f0aab9f80d3215f38a
+ci payload 2749bf1cf398f750d25ed6e84bbb529d5cc5ba3e1ef6be464bff09d0ec87a053
+ci image   87dd4910247cf746df281e77cdf8d63528a148757a82e2b97be58ee5d9183162
 boot       94c639d1f45197718c62bd09c32c72b39710ba23de60f4a04bba96014bce1cb6
 root A     e698339d0e228609c2d98f16ae8dd44a5149f2ccc19a44b98d5d08845c53f96f
 root B     985c30fcca28cb79e6ad6d30a1ff4b4b6b7306b69d6e480cd7cccf4fb5ca11e3
 root C     34c2882d3b722e53c9755dad3b74284d6ebba6f00256838d407ba3694b1a456d
+root A'    55e2ab2c6e5494f473ece06a1c2bed728ed528bb257b67f01413d1aa51c76f11
 icl orig   ae3178046fe7cb9e08291c39dc4773429be26c35472c6fbd9135d5f2a225fd73
 icl pat    4a4895422dcec766b90b65c067ecb06ef8fd3e346c03ee7e2464a85f62a73b74
 ```
@@ -84,12 +90,28 @@ Device-baseline hashes (GPT/boot/vbmeta) are intentionally **not** published;
 they can fingerprint the unit. The device situation is described in
 `docs/en/device.md`; only the artifact hashes above are the contract.
 
+## Hash stability
+
+Fixed / pre-boot (identity): the patchset, boot args, ICL blocks, the named
+root snapshots (A/B/C/A') and the named kernel/payload/image artifacts for a
+specific run. Kernel CI builds are not bit-identical; the patchset hash is the
+gate; record the actual artifact hash for each run. A' is one first-boot
+snapshot; a new first boot is a new state.
+
+Volatile / post-boot (do not require these to match): the live root after any
+boot (A' -> A''), UUIDs/timestamps, logs and caches, the SWEETLOG ring and its
+decoded text, and UI pixels/timing. The contract is pre-boot identity plus
+behavior (lock screen, autoswipe, desktop, ring markers), not a post-boot
+whole-disk hash.
+
 ## Guaranteed
 
 - The patchset and recipe: the workflow refuses to build unless the recipe
   reproduces `de1824c2...` (87 files); CI is green.
 - The offline tools: host checks, synthetic and real ICL block round-trips.
 - The documented success-path procedure and its scope.
+- The 2026-10-22 one-unit device evidence (B+NOP first boot -> A', CI kernel
+  boot), as recorded evidence; it is not a second-unit guarantee.
 - Historical evidence for failed routes, clearly marked as not supported.
 
 ## Rebuild
@@ -104,7 +126,11 @@ remains `94c639d1...`.
 
 - An independent device boot on another unit.
 - Exact UI pixels, timing or app state.
-- Boot of the CI-rebuilt kernel (it has not been flashed).
+- A different CI build or payload, or a second-unit boot of the CI-rebuilt
+  kernel. The 2026-10-22 run booted on the author's unit with payload ref
+  `33852e3`; the strict pinned rebuild is open.
+- Post-boot live-root/ring/log hashes, A' across first boots, and UI timing.
+- The external root builder and shim/ADT builder as clean-room tools.
 - Regression of the original (unpatched) ICL block.
 - The root/boot artifacts themselves (not included).
 - A byte-identical rebuild of the original boot image (its filler was random).
@@ -116,18 +142,19 @@ Deferred due to time and effort, not because they are known to fail:
 
 - second-unit boot test;
 - Linux clean-room host CI;
-- flashing and booting the CI-rebuilt kernel;
+- strict pinned payload rebuild (the 2026-10-22 test used ref `33852e3`);
+- root builder and shim/ADT builder as clean-room tools;
 - original ICL block regression;
 - real touch, keys and USB;
 - long-run stability;
-- device regression tests: none were run for this packaging (author decision,
-  2026-10-21).
+- second-unit/clean-room device regression; the one-unit first boot and CI
+  kernel were run on 2026-10-22.
 
 Device-baseline hashes (GPT, boot_a/b, vbmeta) are intentionally not
 published; the device is described in `docs/en/device.md` instead.
 
-These are explicit open items. Until they are done, this document remains a
-**theoretical/documentation-level guarantee**.
+These are explicit open items. The document records one-unit device evidence
+and the documented recipe; it is not yet a second-unit guarantee.
 
 ## How to use
 

@@ -69,8 +69,10 @@ layout-equivalent to the original 0084 image, not byte-identical. The original
 image used `os.urandom` filler; use `boot_layout.py`, not the image SHA, for a
 rebuild.
 
-No device regression tests were run for this packaging; the home-screen result
-is historical (boot23) and CI covers the build only.
+2026-10-22: the B+NOP first boot -> A' and the CI kernel boot were run on the
+author's unit. The CI kernel used payload ref `33852e3`, not the pinned
+`5095ac1`. A' is a first-boot snapshot; a second-unit/clean-room run is still
+open.
 
 ## Pack the boot image
 
@@ -96,7 +98,7 @@ not usable.
 adb reboot bootloader
 fastboot devices
 fastboot flash boot_a <boot.img>
-fastboot --set-active=a
+# slot _a is already active; older fastboot builds may reject --set-active
 fastboot reboot
 ```
 
@@ -113,13 +115,17 @@ fastboot reboot
 
 ## Expected behavior
 
-- First boot after the patch: ~58 s; warm reboot: ~22 s (boot23). Upstream's
-  first boot is 4–5 min.
+- First boot after the patch: ~58 s; warm reboot: ~22 s (boot23). The
+  2026-10-22 B+NOP first boot was observed at 22 s to lock screen and 30 s to
+  autoswipe (cache-warm; observation, not fixed timing). Upstream's first boot
+  is 4–5 min.
 - Lock screen: date starts at `Wednesday, December 31` (no RTC/NTP); clock
   advances; camera icon and home bar.
 - Synthetic swipe unlocks to the home screen; animations run.
 - Black wallpaper, `Waiting...` widgets and a Messages badge may remain.
 - Touch, keys, USB, Wi-Fi, GPU and RTC are not implemented.
+- Pre-boot image hashes are fixed; post-boot live-root/ring/log hashes and
+  timing are volatile (see the "Hash stability" section of `GUARANTEE.md`).
 
 ## Verify
 

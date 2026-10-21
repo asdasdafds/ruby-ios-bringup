@@ -2,9 +2,9 @@
 
 [English](GUARANTEE.md) · **中文**
 
-**状态 2026-10-21 —— 文档级（理论）保证。**
-这是对成功路径的文档化预期，不是已经独立复现的设备保证。由于时间和精力
-限制，更详细的测试保证暂缓。
+**状态 2026-10-22 —— 有单台设备证据的文档化配方。**
+B+NOP 首启 -> A' 和 CI kernel 启动已在作者设备上观察到。这不是已经独立复现
+的第二台/干净室保证；更详细的测试保证暂缓。
 
 ## 范围
 
@@ -27,8 +27,8 @@ stock LK -> XNU 8796 -> iOS 16.7.16 用户态
 - 启动参数为 `config/0084-boot.cmdline`；
 - 按 `docs/zh/09-reproduce.md` 和 `docs/zh/05-userland.md` 的步骤操作；
 
-则**预期**能复现成功状态。“预期”就是“理论”的部分：没有做过第二台设备或
-干净室验证。
+则**预期**能复现成功状态。2026-10-22 在作者一台设备上做过验证；没有做
+第二台设备或干净室验证。
 
 任何一项 hash 不同，本保证不适用；那是一个不同的配置。
 
@@ -40,13 +40,13 @@ stock LK -> XNU 8796 -> iOS 16.7.16 用户态
 | Patchset | `de1824c2...` | 87 个文件；recipe 输出 |
 | 0010/0012 改动 | `1edb6633...` | 小的基线补丁 |
 | 原始内核 | `b38fca5f...` | 实际启动的那颗 |
-| CI 重建内核 | `3ceb9b34...` | 公开前 run；未刷机 |
+| CI 重建内核（2026-10-22） | `8a80855d...` | run `39648068844`；已启动；payload 工具 ref `33852e3` |
 | boot 镜像 | `94c639d1...` | 外部；不在仓库 |
 | root 镜像（A） | `e698339d...` | 外部；成功快照；用前复核 |
 | ICL 原块 | `ae317804...` | 还原路径 |
 | ICL 补丁块 | `4a489542...` | 绕过 |
 | 启动参数 | `config/0084-boot.cmdline` | boot23 实际 cmdline |
-| 成功判据 | 首次启动约 60 秒（实测 58 秒）；热重启约 22 秒；上滑到桌面；动画正常 | 作者 boot22/boot23 |
+| 成功判据 | 首次启动约 60 秒（实测 58 秒）；热重启约 22 秒；2026-10-22 B+NOP 首启观察到 22 秒 / 30 秒；上滑到桌面；动画正常 | 作者 boot22/boot23 和 2026-10-22 run |
 
 root 状态（全部为外部工件；完整镜像不在仓库）：
 
@@ -55,8 +55,10 @@ root 状态（全部为外部工件；完整镜像不在仓库）：
 | A 成功快照 | `e698339d...` | boot22 之后；ICL NOP + 首启状态 |
 | B 首启前 | `985c30...` | pulled+seeded；ICL 原块；boot22 diff 把 B -> A |
 | C clean 基础 | `34c2882d...` | mkiosroot + tweaks；还需要首启/seed |
+| A' 首启快照 | `55e2ab2c...` | 一次 B+NOP 首启的快照；新的首启会不同 |
 
 success bundle 是 A。旧 pin 写的是 B；2026-10-22 只读 root 审计后修正。
+A' 是首启快照，不是稳定 pin；启动后的 hash 是易变的。
 
 完整 hash：
 
@@ -65,10 +67,14 @@ patchset   de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
 0010/0012  1edb66332bb4daa8b1abcd6c4de77a0e88ed9c7e9bb4a2a7045a2696e53ab338
 kernel     b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
 ci kernel  3ceb9b3490f8c8ecaa74348c3c5cb02d7302d0ec7f87006fe8354e9d2011a831
+ci kernel2 8a80855d1f615cf72f6ebb9f6213d0d55c8f799ad80286f0aab9f80d3215f38a
+ci payload 2749bf1cf398f750d25ed6e84bbb529d5cc5ba3e1ef6be464bff09d0ec87a053
+ci image   87dd4910247cf746df281e77cdf8d63528a148757a82e2b97be58ee5d9183162
 boot       94c639d1f45197718c62bd09c32c72b39710ba23de60f4a04bba96014bce1cb6
 root A     e698339d0e228609c2d98f16ae8dd44a5149f2ccc19a44b98d5d08845c53f96f
 root B     985c30fcca28cb79e6ad6d30a1ff4b4b6b7306b69d6e480cd7cccf4fb5ca11e3
 root C     34c2882d3b722e53c9755dad3b74284d6ebba6f00256838d407ba3694b1a456d
+root A'    55e2ab2c6e5494f473ece06a1c2bed728ed528bb257b67f01413d1aa51c76f11
 icl orig   ae3178046fe7cb9e08291c39dc4773429be26c35472c6fbd9135d5f2a225fd73
 icl pat    4a4895422dcec766b90b65c067ecb06ef8fd3e346c03ee7e2464a85f62a73b74
 ```
@@ -79,12 +85,26 @@ root 和 boot 镜像**不在仓库**：它们含不可分发的 Apple/Android �
 设备基线 hash（GPT/boot/vbmeta）有意**不发布**，因为可能成为设备指纹；
 设备情况写在 `docs/zh/device.md`。上表的工件 hash 才是契约。
 
+## hash 稳定性
+
+固定 / 启动前（身份）：patchset、启动参数、ICL 块、命名的 root 快照
+（A/B/C/A'），以及某次 run 的 kernel/payload/image 工件。CI 构建不是位级
+一致；patchset hash 是门禁；记录该 run 的实际 artifact hash。A' 是一次首启
+快照；新的首启会是一个新状态。
+
+易变 / 启动后（不要求相同）：任何启动后的 live root（A' -> A''）、
+UUID/时间戳、日志/缓存、SWEETLOG ring 及其解码文本、UI 像素/时序。契约是
+启动前身份 + 行为（锁屏、autoswipe、桌面、ring 标记），不是启动后的整盘
+hash。
+
 ## 保证
 
 - Patchset 和 recipe：workflow 只有在 recipe 还原出 `de1824c2...`（87 个
   文件）时才编译；CI 已绿。
 - 离线工具：host 检查、合成与真实 ICL 块往返。
 - 成功路径的文档化步骤和范围。
+- 2026-10-22 的单台设备证据（B+NOP 首启 -> A'、CI kernel 启动），作为
+  记录证据；它不是第二台设备的保证。
 - 失败路线的历史证据，明确标注不支持。
 
 ## 重建
@@ -98,7 +118,10 @@ root 和 boot 镜像**不在仓库**：它们含不可分发的 Apple/Android �
 
 - 另一台设备上的独立启动。
 - 精确 UI 像素、时序或应用状态。
-- CI 重建内核的启动（未刷机）。
+- 不同的 CI 构建/payload，或 CI 重建内核在第二台设备上的启动。2026-10-22
+  的 run 在作者设备上用 payload ref `33852e3` 启动成功；严格 pin 重打仍未做。
+- 启动后的 live-root/ring/日志 hash、跨首启的 A'、UI 时序。
+- 外部 root builder 和 shim/ADT builder 作为干净室工具。
 - 原始（未打补丁）ICL 块的回归。
 - root/boot 工件本身（不在仓库）。
 - 原 boot 镜像的字节级重建（原 filler 是随机的）。
@@ -110,16 +133,18 @@ root 和 boot 镜像**不在仓库**：它们含不可分发的 Apple/Android �
 
 - 第二台设备启动测试；
 - Linux 干净室 host CI；
-- 刷入并启动 CI 重建内核；
+- 严格 pin 的 payload 重建（2026-10-22 的测试用了 ref `33852e3`）；
+- root builder 和 shim/ADT builder 作为干净室工具；
 - 原始 ICL 块回归；
 - 真实触摸、按键和 USB；
 - 长时间稳定性；
-- 设备回归测试：这次打包没有做（作者决定，2026-10-21）。
+- 第二台/干净室设备回归；单台首启和 CI kernel 已在 2026-10-22 跑过。
 
 设备基线 hash（GPT、boot_a/b、vbmeta）有意不发布；设备情况写在
 `docs/zh/device.md`。
 
-这些是明确的未完成项。做完之前，本文件保持**文档级/理论级保证**。
+这些是明确的未完成项。本文件记录单台设备证据和文档化配方；它还不是
+第二台设备的保证。
 
 ## 使用方式
 

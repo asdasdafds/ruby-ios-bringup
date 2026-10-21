@@ -1,6 +1,6 @@
 # Status
 
-As of **2026-10-21**. This is a snapshot of verified results, not a live device
+As of **2026-10-22**. This is a snapshot of verified results, not a live device
 status. No phone is attached to this repository or to its CI.
 
 ## Verified
@@ -17,9 +17,14 @@ status. No phone is attached to this repository or to its CI.
 | ICL tool | original block -> patched block reproduces `4a489542...` | host-side round-trip, 2026-10-21 |
 | Host pipeline | payload `50701e81...`; deterministic rebuild `a0ce0fe1...`; layout PASS vs 0084 | host-only, 2026-10-21; no root/phone |
 | Host checks | strict host bundle PASS; config-mode layout PASS (11 checks); Linux host CI green before the final docs/template-only amendment | host-only, 2026-10-21 |
+| Root state audit | A `e698339d...` (post-boot22), B `985c30...` (pre-boot22), C `34c2882d...` (clean base), A' `55e2ab2c...` (first-boot snapshot) | read-only audit, 2026-10-22 |
+| First boot from B+NOP | B+NOP -> A'; observed 22 s to lock screen, 30 s autoswipe; 3 autoswipe attempts; driverkitd only | device run, 2026-10-22 |
+| CI kernel boot | run `39648068844`, kernel `8a80855d...`, payload `2749bf1c...`, image `87dd4910...`; lock screen -> desktop; driverkitd + PosterBoard; no lsd/SpringBoard/backboardd | device run, 2026-10-22 |
 
-The ICL blocks, boot images and logs are **not** in this repository. Only their
-hashes and conclusions are recorded.
+The ICL blocks, boot images, root images and logs are **not** in this
+repository. Only their hashes and conclusions are recorded. Pre-boot image
+hashes are fixed for the named files; post-boot root/ring/log hashes are
+volatile and are not a contract (see `VERIFICATION.md` "Hash stability").
 
 ## Build provenance (0084)
 
@@ -39,19 +44,25 @@ hashes and conclusions are recorded.
 - Workflow: `.github/workflows/xnu.yml`. It runs the recipe and enforces the
   patchset hash before building; see `ci/README.md`.
 - CI: the kernel build and host checks were green before the final
-  docs/template-only amendment; see Actions. Rebuilt kernel SHA256
+  docs/template-only amendment; see Actions. Historical rebuilt kernel SHA256
   `3ceb9b34...`; reference original `b38fca5f...`; builds are not
-  bit-identical. The rebuilt kernel has not been flashed.
-- **Device regression tests: none were run for this packaging.**
+  bit-identical.
+- 2026-10-22 CI run `39648068844` on commit `7418bce` built kernel
+  `8a80855d...`; payload `2749bf1c...`; image `87dd4910...`. It was flashed and
+  booted to the home screen on the author's unit. The payload tool came from
+  upstream ref `33852e3`, not the pinned `5095ac1`.
+- **Device regression:** the first boot from B+NOP -> A' and the CI kernel boot
+  were run on the author's unit on 2026-10-22; a second unit / clean-room is
+  still open. Device-baseline hashes are intentionally not published.
 
 ## Reproducibility guarantee
 
-The success path is covered by a **documented, theoretical guarantee** (same
-device situation, same root/boot artifact hashes, same boot args, documented
-steps). It is not an independently reproduced device guarantee. No device
-regression tests were run for this packaging; detailed test guarantees are
-deferred. Failed routes are historical evidence and are not covered. See
-[`GUARANTEE.md`](GUARANTEE.md).
+The success path now has **one-unit device evidence** (B+NOP first boot ->
+A', and the CI kernel boot) plus the documented recipe. It is not an
+independently reproduced second-unit or clean-room guarantee. Pre-boot image
+hashes are fixed for the named files; post-boot root/ring/log hashes are
+volatile. See [`GUARANTEE.md`](GUARANTEE.md) and the "Hash stability" section
+of `VERIFICATION.md`.
 
 ## Not working
 
@@ -66,8 +77,9 @@ deferred. Failed routes are historical evidence and are not covered. See
 
 - **host-verified**: commands and tools run on the author's PC against local
   files; see `VERIFICATION.md`.
-- **device-verified (historical)**: observed on the author's phone during the
-  bring-up. These results are not reproduced by CI and are not a guarantee for
-  another device or firmware.
+- **device-verified (2026-10-22)**: B+NOP first boot -> A' and the CI kernel
+  boot were observed on the author's unit. Post-boot hashes (live root, ring,
+  logs) are volatile observations, not fixed pins.
 - **not verified**: everything else, including a from-scratch public
-  reproduction on a different ruby unit.
+  reproduction on a different ruby unit, a second-unit boot, and the strict
+  pinned payload rebuild (the CI test used ref `33852e3`).

@@ -49,3 +49,16 @@ libc dependency.
   identified by name and size.
 - Run `sync` after a write.
 - Verify with a second `blkdiff` against the expected CRC map.
+
+## Host helpers
+
+The C tools above run in TWRP. The two Python helpers prepare their inputs on
+the host and never write the source image:
+
+- `make_crc_map.py IMAGE MAP [--replace-idx IDX --replace-data DATA] [--override-block N --override-data BLOCK]`
+- `make_target_patch.py IMAGE IDX OUT --crc-map MAP [replacement options]`
+
+`MAP` is 4 bytes little-endian per 4 KiB block (256 blocks/MiB). The
+replacement layer builds a variant target without a full 16 GiB copy (for
+example, a pre-boot root). `make_target_patch.py` verifies every block against
+the map before writing.

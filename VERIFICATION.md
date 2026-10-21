@@ -6,8 +6,10 @@ after each verification pass.
 ## Environment
 
 - Host: Windows 10 (build 26300), Git Bash, Python 3.13.13.
-- No phone attached; no flashing or device writes.
-- Source artifacts live outside this repository and were read-only inputs.
+- 2026-10-21: no phone attached; source artifacts were read-only inputs.
+- 2026-10-22: device runs with TWRP 3.7.0_12-0; the iOS side has no USB. Root
+  scans were read-only; `boot_a` was written for TWRP/reference/CI images; the
+  root was restored to A/B+NOP only after a live-backup scan.
 
 ## Host-verified (2026-10-21)
 
@@ -65,11 +67,13 @@ Locally (Windows):
 
 The full upstream tree and `ci/ruby-baseline.diff` are **not** in the clean
 history. Before the final docs/template-only amendment, the kernel build and
-host checks were green; see Actions. The rebuilt kernel SHA256 is
+host checks were green; see Actions. The historical rebuilt kernel SHA256 is
 `3ceb9b3490f8c8ecaa74348c3c5cb02d7302d0ec7f87006fe8354e9d2011a831`;
-the reference original is `b38fca5f...`. Builds are not bit-identical. The
-rebuilt kernel was not flashed. No device regression tests were run for this
-packaging.
+the reference original is `b38fca5f...`. The 2026-10-22 run `39648068844`
+(commit `7418bce`) built `8a80855d...`; it was packed with the public scripts
+(payload `2749bf1c...`, image `87dd4910...`) and booted on the author's unit.
+The payload tool came from upstream ref `33852e3`, not the pinned `5095ac1`;
+a strict pinned rebuild is still open.
 
 The reference kernel/image SHAs in `config/0084.env` come from the original
 build.
@@ -83,6 +87,7 @@ Read-only audit of the external frozen root image; no device writes.
 | A success snapshot SHA-256 | `e698339d...` |
 | B pre-boot22 SHA-256 | `985c30...` |
 | C clean base SHA-256 | `34c2882d...` |
+| A' first-boot snapshot SHA-256 | `55e2ab2c...` (one first boot; not stable across runs) |
 | boot22 block set | 62,490 4K blocks; all match post-boot22 |
 | whole-image CRC scan vs pre-boot22 baseline | exactly 62,490 changed; 0 extra, 0 missing |
 | pre-boot22 reconstruction | replacing those blocks with the recorded original blocks yields `985c30...` |
@@ -90,26 +95,69 @@ Read-only audit of the external frozen root image; no device writes.
 | structural spot-check | launchd, dyld, systembag, containers, ByHost, LastSystemVersion=20H392 |
 
 The local frozen root is A. The previous `ROOT_SHA256=985c30...` named B
-(pre-boot22); it was corrected to A on 2026-10-22. Hashes only; no personal
+(pre-boot22); it was corrected to A on 2026-10-22. A' is the first-boot
+snapshot from B+NOP; a new first boot is a new state. Hashes only; no personal
 paths or device identifiers.
 
-## Guarantee status (2026-10-21)
+## Guarantee status (2026-10-22)
 
 - **G1 — host/build:** verified. A fresh clone passes `verify-local.py`; the
   kernel workflow uses the recipe and enforces the canonical patchset hash; CI
   was green before the final docs/template-only amendment; see Actions.
-- **G2 — success path:** documented, **theoretical** guarantee. The bundle is
-  the patchset, boot image, root image, ICL blocks and boot args. It has not
-  been independently reproduced on a second unit or in a clean-room.
-- **G3 — author's device:** historical; boot23 reached the home screen with
-  animations.
-- **Deferred:** second-unit boot, Linux clean-room CI, flashing the rebuilt
-  kernel, original ICL block regression, real touch/keys/USB, long-run
-  stability.
-- **No device regression tests were run for this packaging** (author decision,
-  2026-10-21). Device-baseline hashes are intentionally not published.
+- **G2 — success path:** documented recipe with **one-unit device evidence**
+  (B+NOP first boot -> A', and the CI kernel boot). It has not been independently
+  reproduced on a second unit or in a clean-room. Pre-boot hashes are the
+  contract; post-boot live-root/ring/log hashes are volatile.
+- **G3 — author's device:** 2026-10-22: B+NOP first boot at 22 s to lock screen
+  and 30 s to autoswipe (observed); 3 autoswipe attempts; driverkitd only;
+  A' `55e2ab2c...`. CI kernel `8a80855d...` booted to the home screen
+  (driverkitd + PosterBoard; no lsd/SpringBoard/backboardd).
+- **Deferred:** second-unit boot, Linux clean-room CI, strict pinned payload
+  rebuild (the test used ref `33852e3`), root/shim/ADT builders as clean-room
+  tools, original ICL block regression, real touch/keys/USB, long-run stability.
+- Device-baseline hashes are intentionally not published.
 
 The scope, hashes and non-guarantees are in [`GUARANTEE.md`](GUARANTEE.md).
+
+## Hash stability (2026-10-22)
+
+Fixed / pre-boot (identity):
+
+- patchset `de1824c2...`; boot args; ICL blocks `ae317804...` / `4a489542...`;
+- named artifacts: reference 0084 `94c639d1...`, CI image `87dd4910...`, CI
+  kernel `8a80855d...`, payload `2749bf1c...`;
+- named root snapshots: A `e698339d...`, B `985c30...`, C `34c2882d...`,
+  A' `55e2ab2c...`.
+- A' is one first-boot snapshot; a new first boot is a new state. Kernel CI
+  builds are not bit-identical; the patchset hash is the gate; record the
+  actual artifact hash for the run.
+
+Volatile / post-boot (do not require these to match):
+
+- the live root after any boot (A' -> A''), UUIDs/timestamps, logs and caches;
+- the SWEETLOG ring and its decoded text;
+- UI pixels, timing and crash timing/counts.
+
+The contract is pre-boot identity + behavior (lock screen, autoswipe, desktop,
+ring markers), not a post-boot whole-disk hash.
+
+## Device-verified (2026-10-22)
+
+Author's unit; one run. Root images are external.
+
+- Root restore: live vs A scan found 30,606 blocks; the live blocks were backed
+  up, A was written, and a re-scan returned 0 changed.
+- B+NOP: 62,489 blocks (62,490 boot22 blocks minus the ICL block, which is the
+  same NOP in A and B+NOP); re-scan 0 changed; ICL `4a489542...`.
+- First boot: observed 22 s to lock screen and 30 s to autoswipe; ring
+  `5a131ad9...` (3 autoswipe attempts, all edge; driverkitd only); A'
+  `55e2ab2c...`; A' vs A 67,765 blocks; ICL unchanged.
+- CI kernel: run `39648068844`, kernel `8a80855d...`, payload `2749bf1c...`,
+  image `87dd4910...`; lock screen -> desktop; ring `480e5e7b...` (3 autoswipe
+  attempts; driverkitd + PosterBoard; no lsd/SpringBoard/backboardd); reference
+  0084 restored afterwards.
+- Caveat: the payload tool came from upstream ref `33852e3`, not the pinned
+  `5095ac1`; the strict pinned rebuild is open.
 
 ## Device-verified (historical)
 
@@ -129,8 +177,10 @@ are not reproduced by CI and are not a guarantee for another unit or firmware.
 - Real touch, buttons, USB, Wi-Fi, GPU and RTC.
 - Regression of the original (unpatched) ICL block after the first-boot state
   was created.
-- A from-scratch reproduction on a different `ruby` unit or firmware.
-- A device regression test for this packaging; none was run.
+- A from-scratch reproduction on a different `ruby` unit, a second-unit boot,
+  or a clean-room.
+- The strict pinned payload rebuild (the CI test used ref `33852e3`).
+- The root builder and shim/ADT builder as clean-room tools.
 
 ## Media (2026-10-21)
 
