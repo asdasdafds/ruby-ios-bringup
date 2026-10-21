@@ -15,7 +15,7 @@ they can fingerprint the unit. The success-contract artifact hashes are in
 | Memory / storage | 8 GB + 256 GB |
 | System | Android 12 / MIUI 13.0.4, unlocked bootloader, Magisk, slot `_a` |
 | Partition layout | `userdata` 208.4 GiB + `iosroot` 17 GiB; `boot_a` 128 MiB; `super` ~9.1 GB |
-| Current state | TWRP in `boot_a`; Android not restored; `iosroot` holds the ICL NOP |
+| Current state | `boot_a` holds the 0084 XNU image; Android not restored; `iosroot` holds the ICL NOP |
 | Success artifacts | 0084 boot image, kernel, root image, ICL blocks, boot cmdline |
 
 ## What must match

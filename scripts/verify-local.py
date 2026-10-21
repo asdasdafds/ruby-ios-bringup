@@ -30,6 +30,10 @@ FORBIDDEN_EXT = {
     ".img", ".bin", ".elf", ".o", ".a", ".dtb", ".dtbo", ".dmg", ".ipsw",
     ".zip", ".7z", ".tar", ".gz", ".jpg", ".jpeg", ".png", ".mp4", ".mov",
 }
+MEDIA_ALLOW = {
+    "media/autoswipe.mp4",
+    "media/home-screen.jpg",
+}
 TEXT_EXT = {
     ".md", ".py", ".sh", ".c", ".h", ".cpp", ".S", ".ld", ".patch", ".diff",
     ".txt", ".yml", ".yaml", ".env", ".cmdline", ".gitignore", ".gitattributes",
@@ -109,14 +113,20 @@ def check_shell():
 
 def check_forbidden_files():
     found = []
+    allowed = []
     for path in walk_files():
         ext = os.path.splitext(path)[1].lower()
+        rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
         if ext in FORBIDDEN_EXT:
-            found.append(os.path.relpath(path, ROOT))
+            if rel in MEDIA_ALLOW:
+                allowed.append(rel)
+            else:
+                found.append(rel)
     if found:
         fail("forbidden binary/media files: " + ", ".join(found))
     else:
-        ok("no forbidden binary/media files")
+        suffix = f" (allowlisted media: {len(allowed)})" if allowed else ""
+        ok("no forbidden binary/media files" + suffix)
 
 
 def check_pii():

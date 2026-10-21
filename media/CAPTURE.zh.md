@@ -2,8 +2,9 @@
 
 [English](CAPTURE.md) · **中文**
 
-目前还没有提交媒体；拍摄暂缓，作者稍后上传脱敏后的素材。手机回到 0084
-镜像后按这份清单拍。
+首批脱敏素材已入库：[`home-screen.jpg`](home-screen.jpg) 和
+[`autoswipe.mp4`](autoswipe.mp4)（2026-10-21）。后续拍摄仍按这份清单；
+`lock-screen.jpg` 和 `boot.mp4` 尚未提供。
 
 ## 拍什么
 

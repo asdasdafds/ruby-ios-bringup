@@ -17,7 +17,8 @@ after each verification pass.
 |---|---|
 | Python syntax | 14 files, pass |
 | Shell syntax | 6 files, pass |
-| Forbidden binary/media files | none |
+| Forbidden binary/media files | none outside the allowlist |
+| Sanitized media | 2 allowlisted files; SHA-256 in `media/README.md` |
 | Personal paths / secrets | none |
 | Synthetic ICL round-trip | pass (dry-run, apply, wrong-bytes negative case) |
 | Real ICL 4K block round-trip | pass: `ae3178046fe7cb9e08291c39dc4773429be26c35472c6fbd9135d5f2a225fd73` -> `4a4895422dcec766b90b65c067ecb06ef8fd3e346c03ee7e2464a85f62a73b74` |
@@ -111,6 +112,14 @@ are not reproduced by CI and are not a guarantee for another unit or firmware.
   was created.
 - A from-scratch reproduction on a different `ruby` unit or firmware.
 - A device regression test for this packaging; none was run.
+
+## Media (2026-10-21)
+
+- `media/autoswipe.mp4` and `media/home-screen.jpg` are committed with explicit
+  allowlist entries in `scripts/verify-local.py` and `.gitignore`.
+- Both were re-encoded; `ffprobe` reports no location, creation time or encoder
+  tags, and the clip has no audio stream.
+- The 120 s source recording carried GPS metadata and is not in this repository.
 
 ## Commands
 

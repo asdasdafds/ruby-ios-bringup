@@ -14,6 +14,15 @@ A research bring-up, packaged as an independent, sanitized delta.
 > home-screen result is historical (boot23); CI covers the kernel build only.
 > See [`GUARANTEE.md`](GUARANTEE.md).
 
+## Demo
+
+[<img src="media/home-screen.jpg" width="360" alt="SpringBoard home screen after the synthetic swipe">](media/autoswipe.mp4)
+
+**Click the image to play the 12 s clip** (720p60, 2.6 MB): lock screen →
+kernel-side synthetic swipe → home screen. Captured on the 0084 build on
+2026-10-21; metadata and audio stripped. See
+[`media/README.md`](media/README.md).
+
 This repository contains **no Apple firmware, iOS root images, device dumps or
 diff data**. The kernel is built from a pinned upstream baseline plus this
 project's delta; the workflow verifies the applied tree before building.
@@ -55,7 +64,7 @@ evidence and the wrong turns.
 | `tools/image/` | ICL patch, dyld scanner, boot verifier |
 | `tools/twrp/` | validated block diff/patch, TWRP-only |
 | `scripts/` | baseline fetch, host verification |
-| `media/` | reserved; no photos/videos yet |
+| `media/` | sanitized demo clip, home-screen photo and capture rules |
 
 ## Build and verify
 
@@ -91,7 +100,7 @@ packs a deterministic image and checks the layout; see
 | Device | Redmi Note 12 Pro 5G, `ruby` / MT6877, 8 GB + 256 GB |
 | System | Android 12 / MIUI 13.0.4, unlocked, Magisk, slot `_a` |
 | Layout | `userdata` 208.4 GiB + `iosroot` 17 GiB; `boot_a` 128 MiB; `super` ~9.1 GB |
-| Current state | TWRP in `boot_a`; Android not restored; `iosroot` holds the ICL NOP |
+| Current state | `boot_a` holds the 0084 XNU image; Android not restored; `iosroot` holds the ICL NOP |
 | Success artifacts | 0084 image, kernel, root image, ICL blocks, boot cmdline |
 | Must match | firmware/GPT, root hash, boot image, boot args, panel/display |
 | Not needed | touch firmware, Wi-Fi, USB, GPU, RTC |

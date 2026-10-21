@@ -2,9 +2,9 @@
 
 **English** · [中文](CAPTURE.zh.md)
 
-No media is committed yet. Capture is deferred; the author will upload
-sanitized assets later. Use this checklist when the phone is back on the 0084
-image.
+The first sanitized assets are committed: [`home-screen.jpg`](home-screen.jpg)
+and [`autoswipe.mp4`](autoswipe.mp4) (2026-10-21). Use this checklist for
+future captures; `lock-screen.jpg` and `boot.mp4` are still open.
 
 ## What to capture
 

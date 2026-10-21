@@ -20,12 +20,15 @@ build/
 __pycache__/
 *.pyc
 
-# Media is reserved but empty for now
+# Media: only the sanitized, allowlisted demo assets are tracked
 media/*
 !media/README.md
+!media/README.zh.md
 !media/.gitkeep
 !media/CAPTURE.md
 !media/CAPTURE.zh.md
+!media/autoswipe.mp4
+!media/home-screen.jpg
 
 # Test fixtures are generated at runtime
 testdata/*

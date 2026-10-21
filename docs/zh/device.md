@@ -14,7 +14,7 @@ GUID 的 hash **有意不发布**：它们可能成为设备指纹。成功契�
 | 内存/存储 | 8 GB + 256 GB |
 | 系统 | Android 12 / MIUI 13.0.4，已解锁，Magisk，slot `_a` |
 | 分区布局 | `userdata` 208.4 GiB + `iosroot` 17 GiB；`boot_a` 128 MiB；`super` 约 9.1 GB |
-| 当前状态 | TWRP 在 `boot_a`；Android 未恢复；`iosroot` 保留 ICL NOP |
+| 当前状态 | `boot_a` 为 0084 XNU 镜像；Android 未恢复；`iosroot` 保留 ICL NOP |
 | 成功工件 | 0084 boot 镜像、内核、root 镜像、ICL 块、boot cmdline |
 
 ## 必须匹配

@@ -12,6 +12,14 @@
 > **设备回归测试：** 这次打包没有做设备回归；进桌面是历史结果（boot23），
 > CI 只覆盖内核构建。见 [`GUARANTEE.zh.md`](GUARANTEE.zh.md)。
 
+## 演示
+
+[<img src="media/home-screen.jpg" width="360" alt="合成上滑后的 SpringBoard 桌面">](media/autoswipe.mp4)
+
+**点击图片播放 12 秒片段**（720p60，2.6 MB）：锁屏 → 内核合成上滑 → 桌面。
+2026-10-21 在 0084 构建上拍摄；已去除元数据和音轨。见
+[`media/README.zh.md`](media/README.zh.md)。
+
 仓库**不含 Apple 固件、iOS root、设备 dump 或 diff 数据**。内核由固定上游
 基线 + 本项目增量构建；工作流会先校验还原出的树再编译。
 
@@ -51,7 +59,7 @@
 | `tools/image/` | ICL 补丁、dyld 扫描、boot 校验 |
 | `tools/twrp/` | 已验证的块 diff/patch，仅 TWRP |
 | `scripts/` | 基线拉取、本地验证 |
-| `media/` | 预留；暂无照片/视频 |
+| `media/` | 脱敏演示片段、桌面照片与拍摄规范 |
 
 ## 构建与验证
 
@@ -85,7 +93,7 @@ boot、kernel、ADT、shim 和 0084 golden；生成 payload、确定性 boot 镜
 | 设备 | Redmi Note 12 Pro 5G，`ruby` / MT6877，8 GB + 256 GB |
 | 系统 | Android 12 / MIUI 13.0.4，已解锁，Magisk，slot `_a` |
 | 布局 | `userdata` 208.4 GiB + `iosroot` 17 GiB；`boot_a` 128 MiB；`super` 约 9.1 GB |
-| 当前状态 | TWRP 在 `boot_a`；Android 未恢复；`iosroot` 保留 ICL NOP |
+| 当前状态 | `boot_a` 为 0084 XNU 镜像；Android 未恢复；`iosroot` 保留 ICL NOP |
 | 成功工件 | 0084 镜像、内核、root 镜像、ICL 块、boot cmdline |
 | 需匹配 | 固件/GPT、root hash、boot 镜像、启动参数、面板/显示 |
 | 不需要 | 触摸固件、Wi-Fi、USB、GPU、RTC |
