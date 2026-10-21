@@ -72,6 +72,22 @@ evidence and the wrong turns.
 | `media/` | sanitized demo clip, home-screen photo and capture rules |
 | `ruby-ios-probes` | separate public probe/run-card repository (no Apple material) |
 
+## Probe / test lab
+
+Environment and device-test records live in a separate public repository:
+[`ruby-ios-probes`](https://github.com/lky005/ruby-ios-probes).
+
+Why separate:
+
+- this repository is the stable recipe/contract (patches, CI, boot-image pins,
+  hashes);
+- the probe repository holds host/device checks, run cards and hash-stability
+  notes, which change every run;
+- separate CI keeps a failed environment probe from affecting the kernel build.
+
+This repository remains the source of truth for the recipe and hashes; the
+probe repository only records probes and tests. Neither contains Apple material.
+
 ## Build and verify
 
 ```sh

@@ -49,6 +49,12 @@ PII_PATTERNS = [
     (re.compile(r"\blky005\b", re.I), "personal GitHub handle"),
 ]
 
+# The two project URLs are public; the bare handle elsewhere is still flagged.
+PROJECT_URLS = {
+    "https://github.com/lky005/ruby-ios-bringup",
+    "https://github.com/lky005/ruby-ios-probes",
+}
+
 hard_failures = []
 warnings = []
 
@@ -139,6 +145,8 @@ def check_pii():
             text = open(path, "r", encoding="utf-8", errors="ignore").read()
         except OSError:
             continue
+        for url in PROJECT_URLS:
+            text = text.replace(url, "")
         for pattern, label in PII_PATTERNS:
             for match in pattern.finditer(text):
                 hits.append(f"{os.path.relpath(path, ROOT)}: {label}: {match.group(0)}")

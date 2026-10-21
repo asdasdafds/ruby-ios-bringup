@@ -67,6 +67,20 @@
 | `media/` | 脱敏演示片段、桌面照片与拍摄规范 |
 | `ruby-ios-probes` | 独立的公开探针/run-card 仓库（不含 Apple 材料） |
 
+## 探针 / 测试实验室
+
+环境和设备测试记录放在独立的公开仓库：
+[`ruby-ios-probes`](https://github.com/lky005/ruby-ios-probes)。
+
+为什么分开：
+
+- 本仓库是稳定的配方/契约（patch、CI、boot 镜像 pin、hash）；
+- 探针仓库放 host/device 检查、run card、hash 稳定性说明，每次 run 都会变；
+- CI 分开，环境探针失败不会影响内核构建。
+
+本仓库仍是配方和 hash 的唯一事实源；探针仓库只记录探针和测试。两边都不含
+Apple 材料。
+
 ## 构建与验证
 
 ```sh
