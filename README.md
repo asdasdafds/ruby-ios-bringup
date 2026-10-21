@@ -5,14 +5,16 @@
 **XNU 8796 + iPhone X iOS 16.7.16 userland on a MediaTek MT6877 phone.**
 A research bring-up, packaged as an independent, sanitized delta.
 
-> **Status 2026-10-21:** the first boot reaches the iOS lock screen in about
-> 60 s (58 s measured); a warm reboot reaches it in about 22 s. A kernel-side
-> synthetic swipe unlocks to the SpringBoard home screen; animations run.
-> Real touch, buttons, USB, Wi-Fi, GPU and RTC are not implemented.
+> **Status 2026-10-22:** the reference 0084 image and a CI-built kernel both
+> reach the lock screen and the synthetic swipe to the home screen on the
+> author's unit. **Timings are measured from the Apple logo:** the B+NOP first
+> boot was observed at 22 s to lock screen and 30 s to autoswipe; the historical
+> first boot was ~58 s and the warm reboot ~22 s. Real touch, buttons, USB,
+> Wi-Fi, GPU and RTC are still not implemented.
 >
-> **Device regression testing:** none was run for this packaging. The
-> home-screen result is historical (boot23); CI covers the kernel build only.
-> See [`GUARANTEE.md`](GUARANTEE.md).
+> **Device regression:** the B+NOP first boot -> A' and the CI kernel boot were
+> run on the author's unit on 2026-10-22. A second unit/clean-room and the
+> from-IPSW root/shim/ADT builders remain open. See [`GUARANTEE.md`](GUARANTEE.md).
 
 ## Demo
 
@@ -37,6 +39,8 @@ project's delta; the workflow verifies the applied tree before building.
 | Userland | launchd → lsd → backboardd → SpringBoard |
 | Input | synthetic HID swipe only; real Goodix not ported |
 | Storage | UFS LUN 2, read/write HFS+ on `iosroot` |
+| Latest run | B+NOP first boot -> A' (22 s / 30 s from the Apple logo); CI kernel boot |
+| Open | second unit/clean-room; from-IPSW root/shim/ADT builders; strict pinned payload |
 | Not yet | touch/keys, USB, Wi-Fi, GPU, RTC |
 | Safety | AMFI/sandbox/code signing off; data may be lost |
 
@@ -62,15 +66,24 @@ evidence and the wrong turns.
 | `src/bringup/` | early boot payloads, shim, image packers |
 | `src/ufs-probe/` | read-only MT6877 UFS probe |
 | `tools/image/` | ICL patch, dyld scanner, boot verifier |
-| `tools/twrp/` | validated block diff/patch, TWRP-only |
+| `tools/twrp/` | validated block diff/patch (TWRP) and host CRC/target helpers |
+| `tools/sweetlog/` | SWEETLOG ring decoder |
 | `scripts/` | baseline fetch, host verification |
 | `media/` | sanitized demo clip, home-screen photo and capture rules |
+| `ruby-ios-probes` | separate public probe/run-card repository (no Apple material) |
 
 ## Build and verify
 
 ```sh
 # host checks: no device, no image writes
 python scripts/verify-local.py
+
+# host-side diff/restore helpers (read-only on the source image)
+python tools/twrp/make_crc_map.py <image> <map>
+python tools/twrp/make_target_patch.py <image> <idx> <patch> --crc-map <map>
+
+# SWEETLOG ring decoder (host)
+python tools/sweetlog/decode.py <area.bin> <out.txt>
 ```
 
 The kernel workflow uses:
@@ -100,10 +113,19 @@ packs a deterministic image and checks the layout; see
 | Device | Redmi Note 12 Pro 5G, `ruby` / MT6877, 8 GB + 256 GB |
 | System | Android 12 / MIUI 13.0.4, unlocked, Magisk, slot `_a` |
 | Layout | `userdata` 208.4 GiB + `iosroot` 17 GiB; `boot_a` 128 MiB; `super` ~9.1 GB |
-| Current state | `boot_a` holds the 0084 XNU image; Android not restored; `iosroot` holds the ICL NOP |
-| Success artifacts | 0084 image, kernel, root image, ICL blocks, boot cmdline |
+| Current state | `boot_a` holds the reference 0084 image; `iosroot` is A'' (A' + CI kernel runtime writes); Android not restored; ICL NOP |
+| Success artifacts | 0084 image, kernel, root A/A' snapshots, ICL blocks, boot cmdline |
 | Must match | firmware/GPT, root hash, boot image, boot args, panel/display |
 | Not needed | touch firmware, Wi-Fi, USB, GPU, RTC |
+
+Root states (external; pinned in `config/0084.env`):
+
+| State | SHA-256 | Meaning |
+|---|---|---|
+| A success | `e698339d...` | post-boot22; ICL NOP + first-boot state |
+| B pre-boot22 | `985c30...` | pulled+seeded; ICL original; the boot22 diff maps B -> A |
+| C clean base | `34c2882d...` | mkiosroot + tweaks; first boot/seed needed |
+| A' first boot | `55e2ab2c...` | one B+NOP first-boot snapshot; new first boots differ |
 
 Device-baseline hashes (GPT/boot/vbmeta) are intentionally **not** published;
 they can fingerprint the unit. Artifact hashes are in `config/0084.env`. See
@@ -123,11 +145,12 @@ they can fingerprint the unit. Artifact hashes are in `config/0084.env`. See
 ## Guarantee
 
 The success path — boot to the lock screen and the synthetic swipe to the home
-screen — is covered by a **documented, theoretical guarantee**: same device
-baseline, same root/boot artifact hashes, same boot args, documented steps.
-It is not an independently reproduced device guarantee. Detailed test
-guarantees are deferred due to time and effort; failed routes are historical
-evidence and are not covered. See [`GUARANTEE.md`](GUARANTEE.md).
+screen — now has **one-unit device evidence** (B+NOP first boot -> A', and the
+CI kernel boot) plus the documented recipe. It is not a second-unit or
+clean-room guarantee. Pre-boot artifact hashes are fixed for the named files;
+post-boot live-root/ring/log hashes are volatile. The from-IPSW root/shim/ADT
+builders and the strict pinned payload rebuild are still open. See
+[`GUARANTEE.md`](GUARANTEE.md).
 
 ## Docs
 

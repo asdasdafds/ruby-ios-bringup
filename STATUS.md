@@ -7,7 +7,7 @@ status. No phone is attached to this repository or to its CI.
 
 | Item | Result | Evidence |
 |---|---|---|
-| Boot to lock screen | first boot ~60 s (58 s measured); warm reboot ~22 s (boot23) | author's device log; 0084 image SHA `94c639d1...` |
+| Boot to lock screen | first boot ~60 s (58 s measured); warm reboot ~22 s (boot23) | timings from the Apple logo; author's device log; 0084 image SHA `94c639d1...` |
 | Unlock to home screen | synthetic swipe; normal animations | author's device log and screen capture |
 | ICL NOP | dyld `.15`, iosroot 4K block `2438140`, `02255e95 -> 1f2003d5` | original block SHA `ae317804...`; patched `4a489542...`; backup exists |
 | UFS root | LUN 2, GPT header at 512 / entries 1024, `iosroot` partition | read/write HFS+ mount on the author's device |
@@ -18,7 +18,7 @@ status. No phone is attached to this repository or to its CI.
 | Host pipeline | payload `50701e81...`; deterministic rebuild `a0ce0fe1...`; layout PASS vs 0084 | host-only, 2026-10-21; no root/phone |
 | Host checks | strict host bundle PASS; config-mode layout PASS (11 checks); Linux host CI green before the final docs/template-only amendment | host-only, 2026-10-21 |
 | Root state audit | A `e698339d...` (post-boot22), B `985c30...` (pre-boot22), C `34c2882d...` (clean base), A' `55e2ab2c...` (first-boot snapshot) | read-only audit, 2026-10-22 |
-| First boot from B+NOP | B+NOP -> A'; observed 22 s to lock screen, 30 s autoswipe; 3 autoswipe attempts; driverkitd only | device run, 2026-10-22 |
+| First boot from B+NOP | B+NOP -> A'; observed 22 s to lock screen, 30 s autoswipe (from the Apple logo); 3 autoswipe attempts; driverkitd only | device run, 2026-10-22 |
 | CI kernel boot | run `39648068844`, kernel `8a80855d...`, payload `2749bf1c...`, image `87dd4910...`; lock screen -> desktop; driverkitd + PosterBoard; no lsd/SpringBoard/backboardd | device run, 2026-10-22 |
 
 The ICL blocks, boot images, root images and logs are **not** in this

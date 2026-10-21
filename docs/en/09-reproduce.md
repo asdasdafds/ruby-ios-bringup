@@ -115,10 +115,11 @@ fastboot reboot
 
 ## Expected behavior
 
-- First boot after the patch: ~58 s; warm reboot: ~22 s (boot23). The
-  2026-10-22 B+NOP first boot was observed at 22 s to lock screen and 30 s to
-  autoswipe (cache-warm; observation, not fixed timing). Upstream's first boot
-  is 4–5 min.
+- All timings are from the Apple logo. First boot after the patch: ~58 s; warm
+  reboot: ~22 s (boot23). The 2026-10-22 B+NOP first boot was observed at 22 s
+  to lock screen and 30 s to autoswipe, measured from the Apple logo
+  (cache-warm; observation, not fixed timing). Upstream's first boot is
+  4–5 min.
 - Lock screen: date starts at `Wednesday, December 31` (no RTC/NTP); clock
   advances; camera icon and home bar.
 - Synthetic swipe unlocks to the home screen; animations run.

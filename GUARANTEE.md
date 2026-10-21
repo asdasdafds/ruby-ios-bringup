@@ -49,7 +49,7 @@ configuration.
 | ICL original block | `ae317804...` | restore path |
 | ICL patched block | `4a489542...` | bypass |
 | Boot args | `config/0084-boot.cmdline` | exact boot23 cmdline |
-| Success criterion | first boot ~60 s (58 s measured); warm reboot ~22 s; 2026-10-22 B+NOP first boot observed 22 s / 30 s; swipe to home; animations | author's boot22/boot23 and 2026-10-22 run |
+| Success criterion | all timings from the Apple logo: first boot ~60 s (58 s measured); warm reboot ~22 s; 2026-10-22 B+NOP first boot 22 s / 30 s; swipe to home; animations | author's boot22/boot23 and 2026-10-22 run |
 
 Root states (all external; full images are not in the repo):
 

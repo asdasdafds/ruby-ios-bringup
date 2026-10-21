@@ -109,9 +109,9 @@ paths or device identifiers.
   reproduced on a second unit or in a clean-room. Pre-boot hashes are the
   contract; post-boot live-root/ring/log hashes are volatile.
 - **G3 — author's device:** 2026-10-22: B+NOP first boot at 22 s to lock screen
-  and 30 s to autoswipe (observed); 3 autoswipe attempts; driverkitd only;
-  A' `55e2ab2c...`. CI kernel `8a80855d...` booted to the home screen
-  (driverkitd + PosterBoard; no lsd/SpringBoard/backboardd).
+  (from the Apple logo) and 30 s to autoswipe (observed); 3 autoswipe attempts;
+  driverkitd only; A' `55e2ab2c...`. CI kernel `8a80855d...` booted to the home
+  screen (driverkitd + PosterBoard; no lsd/SpringBoard/backboardd).
 - **Deferred:** second-unit boot, Linux clean-room CI, strict pinned payload
   rebuild (the test used ref `33852e3`), root/shim/ADT builders as clean-room
   tools, original ICL block regression, real touch/keys/USB, long-run stability.
@@ -149,9 +149,9 @@ Author's unit; one run. Root images are external.
   up, A was written, and a re-scan returned 0 changed.
 - B+NOP: 62,489 blocks (62,490 boot22 blocks minus the ICL block, which is the
   same NOP in A and B+NOP); re-scan 0 changed; ICL `4a489542...`.
-- First boot: observed 22 s to lock screen and 30 s to autoswipe; ring
-  `5a131ad9...` (3 autoswipe attempts, all edge; driverkitd only); A'
-  `55e2ab2c...`; A' vs A 67,765 blocks; ICL unchanged.
+- First boot: observed 22 s to lock screen and 30 s to autoswipe, measured from
+  the Apple logo; ring `5a131ad9...` (3 autoswipe attempts, all edge;
+  driverkitd only); A' `55e2ab2c...`; A' vs A 67,765 blocks; ICL unchanged.
 - CI kernel: run `39648068844`, kernel `8a80855d...`, payload `2749bf1c...`,
   image `87dd4910...`; lock screen -> desktop; ring `480e5e7b...` (3 autoswipe
   attempts; driverkitd + PosterBoard; no lsd/SpringBoard/backboardd); reference
@@ -165,7 +165,8 @@ These results were observed on the author's device during the bring-up. They
 are not reproduced by CI and are not a guarantee for another unit or firmware.
 
 - boot22 (first boot after the patch): 58 s; boot23 (warm reboot): 22 s;
-  synthetic autoswipe unlocked to the home screen; animations normal.
+  timings from the Apple logo; synthetic autoswipe unlocked to the home screen;
+  animations normal.
 - ICL NOP: iosroot 4K block 2438140, original `ae317804...`, patched
   `4a489542...`; original block backed up.
 - boot22 diff: 62,490 changed 4K blocks (244 MiB); the diff data is not in this

@@ -22,7 +22,7 @@ wrong turns.
 | 10-20 | Timeout patch | `mov x1,#-1`→`#0` | lsd crash-loop; reverted |
 | 10-21 | Trace | 0083 `SWEET IOX:` | `sent=1`; kernel was clean |
 | 10-21 | ICL NOP | 4-byte `bl`→`nop` | boot22 lock screen 58 s |
-| 10-21 | Autoswipe | 0084 kernel timer | boot23 warm 22 s, home screen, animations |
+| 10-21 | Autoswipe | 0084 kernel timer | boot23 warm 22 s from the Apple logo, home screen, animations |
 
 ## Failure catalogue
 

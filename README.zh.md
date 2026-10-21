@@ -5,12 +5,14 @@
 **在 MediaTek MT6877 手机上运行 XNU 8796 + iPhone X iOS 16.7.16 用户态。**
 一个研究性 bring-up，以独立、脱敏的增量形式打包。
 
-> **状态 2026-10-21：** 首次启动约 60 秒到锁屏（实测 58 秒）；热重启约
-> 22 秒到锁屏。内核合成上滑解锁到桌面，动画正常。真实触摸、按键、USB、
-> Wi-Fi、GPU、RTC 仍未通。
+> **状态 2026-10-22：** 参考 0084 镜像和 CI 构建内核都已在作者设备上到达锁屏，
+> 合成上滑进桌面。**计时从出现 Apple logo 开始：** B+NOP 首启观察到 22 秒到
+> 锁屏、30 秒 autoswipe；历史首启约 58 秒，热重启约 22 秒。真实触摸、按键、
+> USB、Wi-Fi、GPU、RTC 仍未通。
 >
-> **设备回归测试：** 这次打包没有做设备回归；进桌面是历史结果（boot23），
-> CI 只覆盖内核构建。见 [`GUARANTEE.zh.md`](GUARANTEE.zh.md)。
+> **设备回归：** B+NOP 首启 -> A' 和 CI kernel 启动已在 2026-10-22 于作者设备
+> 上跑过。第二台/干净室，以及从 IPSW 造 root/shim/ADT 的 builder 仍未完成。
+> 见 [`GUARANTEE.zh.md`](GUARANTEE.zh.md)。
 
 ## 演示
 
@@ -33,6 +35,8 @@
 | 用户态 | launchd → lsd → backboardd → SpringBoard |
 | 输入 | 仅合成 HID 上滑；真实 Goodix 未移植 |
 | 存储 | UFS LUN 2，`iosroot` 上读写 HFS+ |
+| 最新 run | B+NOP 首启 -> A'（从 Apple logo 起 22 秒 / 30 秒）；CI kernel 启动 |
+| 未闭环 | 第二台/干净室；从 IPSW 造 root/shim/ADT；严格 pin 的 payload |
 | 未通 | 触摸/按键、USB、Wi-Fi、GPU、RTC |
 | 安全 | AMFI/sandbox/签名关闭；可能丢数据 |
 
@@ -57,15 +61,24 @@
 | `src/bringup/` | 早期启动 payload、shim、镜像打包 |
 | `src/ufs-probe/` | MT6877 UFS 只读探针 |
 | `tools/image/` | ICL 补丁、dyld 扫描、boot 校验 |
-| `tools/twrp/` | 已验证的块 diff/patch，仅 TWRP |
+| `tools/twrp/` | 已验证的块 diff/patch（TWRP）和 host CRC/target 辅助脚本 |
+| `tools/sweetlog/` | SWEETLOG ring 解码器 |
 | `scripts/` | 基线拉取、本地验证 |
 | `media/` | 脱敏演示片段、桌面照片与拍摄规范 |
+| `ruby-ios-probes` | 独立的公开探针/run-card 仓库（不含 Apple 材料） |
 
 ## 构建与验证
 
 ```sh
 # 主机检查：不碰设备、不写镜像
 python scripts/verify-local.py
+
+# host 侧 diff/restore 辅助（对源镜像只读）
+python tools/twrp/make_crc_map.py <image> <map>
+python tools/twrp/make_target_patch.py <image> <idx> <patch> --crc-map <map>
+
+# SWEETLOG ring 解码（host）
+python tools/sweetlog/decode.py <area.bin> <out.txt>
 ```
 
 内核工作流使用：
@@ -93,10 +106,19 @@ boot、kernel、ADT、shim 和 0084 golden；生成 payload、确定性 boot 镜
 | 设备 | Redmi Note 12 Pro 5G，`ruby` / MT6877，8 GB + 256 GB |
 | 系统 | Android 12 / MIUI 13.0.4，已解锁，Magisk，slot `_a` |
 | 布局 | `userdata` 208.4 GiB + `iosroot` 17 GiB；`boot_a` 128 MiB；`super` 约 9.1 GB |
-| 当前状态 | `boot_a` 为 0084 XNU 镜像；Android 未恢复；`iosroot` 保留 ICL NOP |
-| 成功工件 | 0084 镜像、内核、root 镜像、ICL 块、boot cmdline |
+| 当前状态 | `boot_a` 为参考 0084 镜像；`iosroot` 是 A''（A' + CI kernel 运行写入）；Android 未恢复；ICL NOP |
+| 成功工件 | 0084 镜像、内核、root A/A' 快照、ICL 块、boot cmdline |
 | 需匹配 | 固件/GPT、root hash、boot 镜像、启动参数、面板/显示 |
 | 不需要 | 触摸固件、Wi-Fi、USB、GPU、RTC |
+
+root 状态（外部；pin 在 `config/0084.env`）：
+
+| 状态 | SHA-256 | 含义 |
+|---|---|---|
+| A 成功快照 | `e698339d...` | boot22 之后；ICL NOP + 首启状态 |
+| B 首启前 | `985c30...` | pulled+seeded；ICL 原块；boot22 diff 把 B -> A |
+| C clean 基础 | `34c2882d...` | mkiosroot + tweaks；还需要首启/seed |
+| A' 首启快照 | `55e2ab2c...` | 一次 B+NOP 首启快照；新的首启会不同 |
 
 设备基线哈希（GPT/boot/vbmeta）**不发布**，因为可能成为设备指纹；工件
 hash 在 `config/0084.env`。见 [`docs/zh/device.md`](docs/zh/device.md)。
@@ -113,10 +135,11 @@ hash 在 `config/0084.env`。见 [`docs/zh/device.md`](docs/zh/device.md)。
 
 ## 保证
 
-成功路径——启动到锁屏、合成上滑到桌面——采用**文档级（理论）保证**：同设备
-基线、同 root/boot 工件 hash、同启动参数、按文档步骤操作。它不是已经独立
-复现的设备保证；更详细的测试保证因时间和精力暂缓；失败路线只是历史证据，
-不在保证范围内。见 [`GUARANTEE.zh.md`](GUARANTEE.zh.md)。
+成功路径——启动到锁屏、合成上滑到桌面——现在有**单台设备证据**（B+NOP 首启
+-> A'、CI kernel 启动）和文档化配方。它不是第二台/干净室保证。启动前工件
+hash 对命名文件是固定的；启动后的 live-root/ring/日志 hash 易变。从 IPSW
+造 root/shim/ADT 的 builder 和严格 pin 的 payload 仍未完成。见
+[`GUARANTEE.zh.md`](GUARANTEE.zh.md)。
 
 ## 文档
 
