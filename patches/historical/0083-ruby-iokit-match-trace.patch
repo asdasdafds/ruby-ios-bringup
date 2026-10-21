@@ -1,0 +1,105 @@
+--- a/iokit/Kernel/IOService.cpp	2026-10-20 23:06:52.829113300 +0800
++++ b/iokit/Kernel/IOService.cpp	2026-10-20 23:06:52.831120700 +0800
+@@ -5248,8 +5248,20 @@
+ 		// the matches list should always be created by findDrivers()
+ 		if (matches) {
+ 			lockForArbitration();
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++			if (0 == strcmp(getMetaClass()->getClassName(), "IONetworkController")) {
++				IOLog("SWEET IOX: doServiceMatch %s state=0x%x\n",
++				    getMetaClass()->getClassName(), __state[0]);
++			}
++#endif
+ 			if (0 == (__state[0] & kIOServiceFirstPublishState)) {
+ 				getMetaClass()->addInstance(this);
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++				if (0 == strcmp(getMetaClass()->getClassName(), "IONetworkController")) {
++					IOLog("SWEET IOX: addInstance %s\n",
++					    getMetaClass()->getClassName());
++				}
++#endif
+ 				notifiers[0] = copyNotifiers(gIOFirstPublishNotification,
+ 				    kIOServiceFirstPublishState, 0xffffffff );
+ 			}
+@@ -5954,6 +5966,25 @@
+ 	return false;
+ }
+ 
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++/*
++ * SWEET IOKit match trace: report the candidate services of a class-name
++ * provider match, so a missing IOServiceMatched delivery can be traced to
++ * "service not in the metaclass instance set" versus "state bit missing".
++ */
++static bool
++sweet_iokit_class_cand(const OSObject * obj, void * ctx)
++{
++	IOService *     s = (IOService *) obj;
++	unsigned int *  n = (unsigned int *) ctx;
++
++	(*n)++;
++	IOLog("SWEET IOX:   cand class=%s state=0x%x name=%s\n",
++	    s->getMetaClass()->getClassName(), s->getState(), s->getName());
++	return false;
++}
++#endif /* ARM64_BOARD_CONFIG_SWEET */
++
+ // internal - call with gNotificationLock
+ OSObject *
+ IOService::copyExistingServices( OSDictionary * matching,
+@@ -6001,6 +6032,15 @@
+ 
+ 		if ((str = OSDynamicCast(OSString, obj))) {
+ 			const OSSymbol * sym = OSSymbol::withString(str);
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++			if (str->isEqualTo("IONetworkController")) {
++				unsigned int ncand = 0;
++				OSMetaClass::applyToInstancesOfClassName(sym,
++				    sweet_iokit_class_cand, &ncand);
++				IOLog("SWEET IOX: class-match %s -> %u candidate(s), state=0x%x\n",
++				    str->getCStringNoCopy(), ncand, inState);
++			}
++#endif
+ 			OSMetaClass::applyToInstancesOfClassName(sym, instanceMatch, &ctx);
+ 			sym->release();
+ 		} else {
+@@ -6334,11 +6374,25 @@
+ 
+ 	// send notifications for existing set
+ 	if (existing) {
++		unsigned int nseen = 0;
++		unsigned int nsent = 0;
+ 		while ((next = (IOService *) existing->getNextObject())) {
++			nseen++;
+ 			if (0 == (next->__state[0] & kIOServiceInactiveState)) {
+ 				next->invokeNotifier( notify );
++				nsent++;
+ 			}
+ 		}
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++		{
++			OSString * pcs = OSDynamicCast(OSString,
++			    matching->getObject(gIOProviderClassKey));
++			if (pcs && pcs->isEqualTo("IONetworkController")) {
++				IOLog("SWEET IOX: addMatchingNotification existing=%u sent=%u\n",
++				    nseen, nsent);
++			}
++		}
++#endif
+ 		existing->release();
+ 	}
+ 
+@@ -6601,6 +6655,13 @@
+ 			iter->release();
+ 		}
+ 		__state[0] = (__state[0] | orNewState) & andNewState;
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++		if (0 == strcmp(getMetaClass()->getClassName(), "IONetworkController")) {
++			IOLog("SWEET IOX: copyNotifiers %s or=0x%x -> state=0x%x matched_notifiers=%u\n",
++			    getMetaClass()->getClassName(), orNewState, __state[0],
++			    willSend ? (unsigned int) willSend->getCount() : 0u);
++		}
++#endif
+ 		UNLOCKNOTIFY();
+ 	}
+ 

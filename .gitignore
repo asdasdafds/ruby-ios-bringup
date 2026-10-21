@@ -1,0 +1,36 @@
+# Firmware, images, dumps and logs are never committed
+*.img
+*.bin
+*.elf
+*.o
+*.a
+*.dtb
+*.dtbo
+*.dmg
+*.ipsw
+*.zip
+*.7z
+*.tar
+*.gz
+*.log
+logs/
+dumps/
+out/
+build/
+__pycache__/
+*.pyc
+
+# Media is reserved but empty for now
+media/*
+!media/README.md
+!media/.gitkeep
+!media/CAPTURE.md
+!media/CAPTURE.zh.md
+
+# Test fixtures are generated at runtime
+testdata/*
+!testdata/README.md
+
+# OS noise
+.DS_Store
+Thumbs.db

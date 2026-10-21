@@ -1,0 +1,37 @@
+This repository contains original work by the ruby-ios-bringup contributors and
+references the following upstream projects.
+
+XNU
+  Apple's open-source kernel, xnu-8796. The patches in patches/ are
+  modifications to XNU and remain under the Apple Public Source License 2.0.
+  No XNU source tree is included.
+
+ios-sweet (dipa-studio)
+  The original iOS-on-Sweet project. No license file was present at the
+  referenced commit; upstream code is not vendored in this repository.
+  Patches 0001-0079 are not included.
+
+ios-topaz (MakrSas)
+  A fork of ios-sweet targeting the Redmi Note 12 4G. No license file was
+  present at the referenced commit; upstream code is not vendored here.
+
+blacktop/darwin-xnu-build
+  MIT-licensed XNU build harness used by the upstream CI.
+
+TWRP (Team Win Recovery Project)
+  GPLv2. No TWRP image is included.
+
+Magisk
+  GPLv3. No Magisk image is included.
+
+Apple iPhone X iOS 16.7.16 userland / IPSW
+  Not included. Users must obtain their own copy and comply with Apple's terms.
+
+This project is not affiliated with Apple, Xiaomi, MediaTek, or any upstream
+project. All trademarks belong to their respective owners.
+
+Redistribution note: ci/baseline-changes.patch contains a small modification to
+two upstream patch files (0010/0012); the upstream tree is fetched by the
+recipe, not vendored. The upstream projects had no license file at the pinned
+commits. Obtain permission before public redistribution or keep the repository
+private. See LEGAL.md.

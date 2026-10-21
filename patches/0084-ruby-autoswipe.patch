@@ -1,0 +1,134 @@
+--- a/iokit/Kernel/arm/hid/SweetHID.cpp
++++ b/iokit/Kernel/arm/hid/SweetHID.cpp
+@@ -366,12 +366,20 @@
+ 	virtual UInt32 getPrimaryUsage() APPLE_KEXT_OVERRIDE { return kHIDUsage_Dig_TouchScreen; }
+ 	virtual UInt32 getProductID() APPLE_KEXT_OVERRIDE { return 2; }
+ private:
++	static void swipeFired(OSObject *owner, IOTimerEventSource *sender);
+ 	IOLock *fLock;
+ 	int fLogicalW, fLogicalH, fOffX, fOffY;
+ 	bool fDown[SWEET_TOUCH_FINGERS];
+ 	bool fEdge[SWEET_TOUCH_FINGERS];
+ 	IOFixed fX[SWEET_TOUCH_FINGERS];
+ 	IOFixed fY[SWEET_TOUCH_FINGERS];
++	IOTimerEventSource *fSwipeTimer;
++	UInt32 fSwipeDelayMS;
++	UInt32 fSwipeRetryMS;
++	UInt32 fSwipeAttempts;
++	UInt32 fSwipeAttempt;
++	UInt32 fSwipeStep;
++	UInt32 fSwipeVariant;
+ };
+ OSDefineMetaClassAndStructors(SweetHIDTouch, IOHIDEventService);
+ 
+@@ -445,9 +453,110 @@
+ 	gSweetTouch = this;
+ 	registerService();
+ 	IOLog("SWEET HID: touch registered\n");
++
++	fSwipeTimer = NULL;
++	fSwipeAttempt = 0;
++	fSwipeStep = 0;
++	fSwipeVariant = 0;
++	fSwipeDelayMS = 0;
++	fSwipeRetryMS = 15000;
++	fSwipeAttempts = 3;
++	PE_parse_boot_argn("sweetautoswipe", &fSwipeDelayMS, sizeof(fSwipeDelayMS));
++	PE_parse_boot_argn("sweetautoswiperetry", &fSwipeRetryMS, sizeof(fSwipeRetryMS));
++	PE_parse_boot_argn("sweetautoswipeattempts", &fSwipeAttempts, sizeof(fSwipeAttempts));
++	if (fSwipeAttempts > 8) {
++		fSwipeAttempts = 8;
++	}
++	if (fSwipeRetryMS < 1000) {
++		fSwipeRetryMS = 1000;
++	}
++	if (fSwipeDelayMS && fSwipeAttempts) {
++		fSwipeTimer = IOTimerEventSource::timerEventSource(this, &SweetHIDTouch::swipeFired);
++		if (fSwipeTimer && _hidWorkLoop &&
++		    _hidWorkLoop->addEventSource(fSwipeTimer) == kIOReturnSuccess) {
++			fSwipeTimer->setTimeoutMS(fSwipeDelayMS);
++			IOLog("SWEET HID: autoswipe armed in %u ms attempts=%u retry=%u ms\n",
++			    (unsigned)fSwipeDelayMS, (unsigned)fSwipeAttempts, (unsigned)fSwipeRetryMS);
++		} else {
++			IOLog("SWEET HID: autoswipe timer setup failed\n");
++		}
++	}
+ 	return true;
+ }
+ 
++static const int *
++sweetSwipeYs(UInt32 variant, int *count, int *stepMs, int *x)
++{
++	static const int shortY[] = { 2390, 2100, 1800, 1500, 1200 };
++	static const int longY[] = { 2390, 2100, 1800, 1500, 1200, 900, 600, 380 };
++	static const int mediumY[] = { 2390, 2150, 1900, 1650, 1400, 1150, 900 };
++
++	switch (variant % 3) {
++	case 0:
++		*count = (int)(sizeof(shortY) / sizeof(shortY[0]));
++		*stepMs = 50;
++		*x = 540;
++		return shortY;
++	case 1:
++		*count = (int)(sizeof(longY) / sizeof(longY[0]));
++		*stepMs = 40;
++		*x = 540;
++		return longY;
++	default:
++		*count = (int)(sizeof(mediumY) / sizeof(mediumY[0]));
++		*stepMs = 60;
++		*x = 520;
++		return mediumY;
++	}
++}
++
++void
++SweetHIDTouch::swipeFired(OSObject *owner, IOTimerEventSource *sender)
++{
++	SweetHIDTouch *self = (SweetHIDTouch *)owner;
++	const int *ys;
++	int count, stepMs, x;
++
++	if (!self) {
++		return;
++	}
++	if (self->fSwipeStep == 0) {
++		if (self->fSwipeAttempt >= self->fSwipeAttempts) {
++			sender->cancelTimeout();
++			IOLog("SWEET HID: autoswipe done after %u attempts\n",
++			    (unsigned)self->fSwipeAttempt);
++			return;
++		}
++		self->fSwipeAttempt++;
++		self->fSwipeVariant = (self->fSwipeAttempt - 1) % 3;
++		ys = sweetSwipeYs(self->fSwipeVariant, &count, &stepMs, &x);
++		self->touch(0, true, x, ys[0]);
++		self->fSwipeStep = 1;
++		IOLog("SWEET HID: autoswipe attempt %u/%u variant %u (%d steps, %d ms)\n",
++		    (unsigned)self->fSwipeAttempt, (unsigned)self->fSwipeAttempts,
++		    (unsigned)self->fSwipeVariant, count, stepMs);
++		sender->setTimeoutMS(stepMs);
++		return;
++	}
++
++	ys = sweetSwipeYs(self->fSwipeVariant, &count, &stepMs, &x);
++	if ((int)self->fSwipeStep < count) {
++		self->touch(0, true, x, ys[self->fSwipeStep]);
++		self->fSwipeStep++;
++		sender->setTimeoutMS(stepMs);
++		return;
++	}
++	self->touch(0, false, x, ys[count - 1]);
++	self->fSwipeStep = 0;
++	if (self->fSwipeAttempt < self->fSwipeAttempts) {
++		sender->setTimeoutMS(self->fSwipeRetryMS);
++	} else {
++		sender->cancelTimeout();
++		IOLog("SWEET HID: autoswipe done after %u attempts\n",
++		    (unsigned)self->fSwipeAttempt);
++	}
++}
++
+ void
+ SweetHIDTouch::touch(int finger, bool down, int x, int y)
+ {

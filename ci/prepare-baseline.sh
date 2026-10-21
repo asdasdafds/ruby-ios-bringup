@@ -1,0 +1,67 @@
+#!/bin/sh
+# Build the pinned baseline patchset without vendoring the upstream tree.
+#
+#   1. fetch MakrSas/ios-topaz at the pinned commit,
+#   2. remove the topaz-specific patches by name,
+#   3. add this project's patches,
+#   4. apply the small 0010/0012 change,
+#   5. normalize to LF and verify the canonical patchset hash.
+#
+# Usage: sh ci/prepare-baseline.sh [DEST]
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+BASE_REPO=${BASE_REPO:-https://github.com/MakrSas/ios-topaz.git}
+BASE_SHA=${BASE_SHA:-5095ac19dbdcf37b64b81fe443f4027ad51b84bf}
+PATCHSET_SHA256=${PATCHSET_SHA256:-de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360}
+PYTHON=${PYTHON:-python3}
+DEST=${1:-baseline}
+
+if [ -e "$DEST" ]; then
+    echo "prepare-baseline: $DEST already exists" >&2
+    exit 2
+fi
+
+git init -q "$DEST"
+git -C "$DEST" remote add origin "$BASE_REPO"
+git -C "$DEST" fetch -q --depth 1 origin "$BASE_SHA"
+git -C "$DEST" checkout -q FETCH_HEAD
+
+actual="$(git -C "$DEST" rev-parse HEAD)"
+if [ "$actual" != "$BASE_SHA" ]; then
+    echo "prepare-baseline: baseline mismatch: $actual" >&2
+    exit 3
+fi
+
+# Normalize the baseline patches before applying text changes.
+"$PYTHON" "$ROOT/ci/normalize_lf.py" "$DEST/xnu/patches"
+
+while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if [ ! -f "$DEST/xnu/patches/$name" ]; then
+        echo "prepare-baseline: missing topaz patch: $name" >&2
+        exit 4
+    fi
+    rm -f "$DEST/xnu/patches/$name"
+done < "$ROOT/ci/topaz-patches-to-remove.txt"
+
+cp "$ROOT/patches/0080-ruby-ufs.patch" "$ROOT/patches/0084-ruby-autoswipe.patch" \
+    "$DEST/xnu/patches/"
+cp "$ROOT/patches/historical/0081-ruby-swap-debug.patch" \
+    "$ROOT/patches/historical/0082-ruby-wifi-stub.patch" \
+    "$ROOT/patches/historical/0083-ruby-iokit-match-trace.patch" \
+    "$DEST/xnu/patches/"
+
+git -C "$DEST" apply --whitespace=nowarn "$ROOT/ci/baseline-changes.patch"
+
+"$PYTHON" "$ROOT/ci/normalize_lf.py" "$DEST/xnu/patches"
+actual_hash=$("$PYTHON" "$ROOT/ci/patchset_hash.py" "$DEST/xnu/patches")
+echo "patchset: $actual_hash"
+
+if [ "$actual_hash" != "$PATCHSET_SHA256" ]; then
+    echo "prepare-baseline: patchset mismatch" >&2
+    echo "  expected $PATCHSET_SHA256" >&2
+    exit 5
+fi
+
+echo "baseline ready: $DEST"

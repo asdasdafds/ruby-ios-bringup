@@ -1,0 +1,67 @@
+# 可复现性（理论）
+
+[English](../en/reproducibility.md) · **中文**
+
+仓库按 **Tier B** 发布成功路径：只放自己的补丁、工具和文档；上游树由 recipe
+拉取，不 vendor；不公开完整 delta，也不放 Apple/Android 二进制。保证是文档级、
+理论级的，不是已经独立复现的设备保证。
+
+## 公开什么
+
+- `patches/`：0080 UFS、0084 autoswipe、历史 0081-0083。
+- `ci/prepare-baseline.sh`：拉固定基线、删 topaz 补丁、加本项目补丁、应用
+  0010/0012 小改动。
+- `ci/patchset_hash.py`：87 文件 patchset 规范哈希。
+- `ci/baseline-changes.patch`：只含 0010/0012 小改动。
+- `tools/image/`、`tools/twrp/`、`scripts/check-bundle.py`：离线检查。
+- `scripts/build-payload.sh`、`tools/image/pack_boot.py`、
+  `tools/image/boot_layout.py`、`scripts/test-pipeline.sh`：host 管线。
+- `config/0084.env`：工件 hash 和 boot cmdline。
+
+## 不公开什么
+
+- `ci/ruby-baseline.diff` 或任何完整上游 delta（已从历史移除）。
+- Apple 固件、iOS root、dyld 共享缓存。
+- stock/Magisk/TWRP boot 镜像。
+- 设备基线 hash（GPT/boot/vbmeta）；见 `device.md`。
+- 全量日志、设备 dump、diff 数据、媒体（稍后）。
+
+## 防漂移
+
+| 控制 | 防止什么 |
+|---|---|
+| 固定基线 `5095ac1` | 上游分支移动 |
+| 固定 topaz 删除清单 | 补丁残留 |
+| recipe 失败即停 | 文件缺失或 0010/0012 上下文变化 |
+| LF 归一化 | Windows/macOS 换行漂移 |
+| `PATCHSET_SHA256=de1824c2...` | patchset 内容变化 |
+| `ci/baseline-changes.patch` SHA | 基线改动漂移 |
+| `check-bundle.py` | kernel/boot/root/ICL/cmdline 不对 |
+| Actions 按 SHA 固定 | CI 供应链漂移 |
+| `permissions: contents: read` | CI token 权限过大 |
+| Xcode 15.0.1 固定 | 工具链漂移 |
+| 干净 git 历史 | 旧 delta 被带进公开历史 |
+
+## Host 管线状态
+
+host 阶段已具备并用 0084 输入测过：payload `50701e81…`、确定性重建
+`a0ce0fe1…`、布局对比 golden PASS（没有 golden 时用 config pin 也 PASS）；
+只有 filler 字节不同。Linux host CI 在最终 docs/template-only 改动前已绿；
+见 Actions（`verify-local` 和 TWRP 交叉编译在 Ubuntu 上通过）。shim/ADT 仍是外部
+输入，不碰 16 GiB root。原镜像的字节级重建不可能，因为 filler 是随机的。
+
+## 仍可能坏的地方
+
+- 上游 commit 不可达；需要镜像。
+- `macos-14` runner 或 Xcode 15.0.1 消失；workflow 会明确失败。
+- Homebrew 版本变化；记录但不固定。
+- root/boot 工件丢失或被替换。
+- 设备固件/GPT/面板与 `device.md` 不一致。
+- ICL 偏移是版本相关的；换 root 就不匹配。
+- 原 boot 镜像的字节级重建；原 filler 是随机的。
+
+## 测试状态
+
+这次打包没有做设备回归测试。进桌面是历史结果（boot23）；CI 只构建内核。
+精确设备效果依赖同一 root/boot 工件和同一类设备。见
+[`../../GUARANTEE.zh.md`](../../GUARANTEE.zh.md)。

@@ -1,0 +1,106 @@
+diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -303,29 +303,59 @@
+ ufs_find_partition(const char *want)
+ {
+ 	const uint8_t *b = (const uint8_t *)(su.dma + DMA_BOUNCE);
+-	int error = ufs_read_blocks(1, 1);
++	int error = ufs_read_blocks(0, 1);
+ 	if (error) {
+ 		return error;
+ 	}
+-	if (memcmp(b, "EFI PART", 8) != 0) {
+-		printf("SWEET UFS: LUN %u has no GPT\n", su.lun);
+-		return ENXIO;
++	/*
++	 * ruby: the GPT header is at byte 512 of 4K block 0 and the entry table
++	 * follows at byte 1024. Keep the old block-1 layout as a fallback.
++	 */
++	const uint8_t *gpt;
++	uint32_t entry_off;
++	if (memcmp(b + 512, "EFI PART", 8) == 0) {
++		gpt = b + 512;
++		entry_off = 1024;
++	} else if (memcmp(b, "EFI PART", 8) == 0) {
++		gpt = b;
++		entry_off = 0;
++	} else {
++		error = ufs_read_blocks(1, 1);
++		if (error) {
++			return error;
++		}
++		if (memcmp(b, "EFI PART", 8) != 0) {
++			printf("SWEET UFS: LUN %u has no GPT\n", su.lun);
++			return ENXIO;
++		}
++		gpt = b;
++		entry_off = 0;
+ 	}
+ 	uint64_t entry_lba;
+ 	uint32_t nent, esz;
+-	memcpy(&entry_lba, b + 72, 8);
+-	memcpy(&nent, b + 80, 4);
+-	memcpy(&esz, b + 84, 4);
+-	if (esz != 128 || nent == 0 || nent * esz > BOUNCE_SIZE) {
++	memcpy(&entry_lba, gpt + 72, 8);
++	memcpy(&nent, gpt + 80, 4);
++	memcpy(&esz, gpt + 84, 4);
++	if (esz != 128 || nent == 0 || entry_off + (uint64_t)nent * esz > BOUNCE_SIZE) {
+ 		printf("SWEET UFS: unsupported GPT entries %u x %u\n", nent, esz);
+ 		return ENXIO;
+ 	}
+-	error = ufs_read_blocks(entry_lba, (nent * esz + UFS_BLOCK - 1) / UFS_BLOCK);
+-	if (error) {
+-		return error;
++	const uint8_t *ents;
++	if (entry_off != 0) {
++		error = ufs_read_blocks(0, (entry_off + nent * esz + UFS_BLOCK - 1) / UFS_BLOCK);
++		if (error) {
++			return error;
++		}
++		ents = b + entry_off;
++	} else {
++		error = ufs_read_blocks(entry_lba, (nent * esz + UFS_BLOCK - 1) / UFS_BLOCK);
++		if (error) {
++			return error;
++		}
++		ents = b;
+ 	}
+ 	for (uint32_t i = 0; i < nent; i++) {
+-		const uint8_t *e = b + i * esz;
++		const uint8_t *e = ents + i * esz;
+ 		char name[37];
+ 		unsigned c;
+ 		for (c = 0; c < 36; c++) {
+@@ -618,7 +648,10 @@
+ 		return ENOMEM;
+ 	}
+ 	su.dma_pa = ptoa_64(pn);
+-	su.lun = 0;
++	/* ruby: the main Android GPT is on LUN 2 (LUN 0/1 are 4 MiB raw). */
++	uint32_t lun = 2;
++	PE_parse_boot_argn("ufslun", &lun, sizeof(lun));
++	su.lun = (uint8_t)lun;
+ 	su.secsize = DEV_BSIZE;
+ 
+ 	lck_mtx_lock(&sweet_ufs_lock);
+@@ -657,9 +690,15 @@
+ 	sweet_log_start();
+ 	sweet_sample_start();
+ 	/* Input drivers (HID services in iokit/Kernel/arm/hid/SweetHID.cpp). */
+-	sweet_keys_init();
+-	sweet_touch_init();
+-	sweet_usb_probe();
++	int hw = 0;
++	PE_parse_boot_argn("sweethw", &hw, sizeof(hw));
++	if (hw == 1) {
++		sweet_keys_init();
++		sweet_touch_init();
++		sweet_usb_probe();
++	} else {
++		printf("SWEET UFS: keys/touch/USB skipped (ruby, sweethw=0)\n");
++	}
+ 	return 0;
+ }
+ 
