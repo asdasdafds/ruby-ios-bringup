@@ -81,7 +81,8 @@ author's layout puts the iOS root on `iosroot`; the upstream path uses
 | Touch | Goodix **GT9916R** | SPI3 `0x11013000` |
 | Touch IRQ/reset | GPIO14 / GPIO15 | DVDD GPIO110 |
 | Touch range | ABS 10800×24000 | panel is 1080×2400 (10×) |
-| Touch firmware | `goodix_firmware_m16_TM/GVO.bin` | variant must be checked on Android |
+| Touch firmware | `goodix_firmware_m16_TM.bin` | **TM** confirmed; no host download when version/config match |
+| Touch driver | 0085, GPIO bit-bang SPI3 | MT6360 LDO3 1.8 V / LDO2 3.3 V; see [touch manual](touch-goodix-9916r.md) |
 | Keys | `mtk-kpd @ 0x10010000` | power/volume; not pwrap keys |
 | PMIC | pwrap `0x10026000/0x10028000` | MT6359; MT6360 charger; MT6315 SPMI |
 | USB | MTU3 `usb0@11201000` | U2/U3 PHY, MT6360 Type-C; not ported |

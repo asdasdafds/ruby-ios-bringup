@@ -5,16 +5,19 @@
 **XNU 8796 + iPhone X iOS 16.7.16 userland on a MediaTek MT6877 phone.**
 A research bring-up, packaged as an independent, sanitized delta.
 
-> **Status 2026-10-22:** the reference 0084 image and a CI-built kernel both
-> reach the lock screen and the synthetic swipe to the home screen on the
-> author's unit. **Timings are measured from the Apple logo:** the B+NOP first
-> boot was observed at 22 s to lock screen and 30 s to autoswipe; the historical
-> first boot was ~58 s and the warm reboot ~22 s. Real touch, buttons, USB,
+> **Status 2026-10-22:** **real touch works.** The 0085 kernel drives the
+> Goodix GT9916R over bit-bang SPI3, unlocks the lock screen with a real
+> bottom-edge swipe, and reports two fingers and edge events. The 0084 image
+> and a CI-built kernel also reach the lock screen and the synthetic swipe to
+> the home screen. **Timings are measured from the Apple logo:** the B+NOP
+> first boot was observed at 22 s to lock screen and 30 s to autoswipe; the
+> historical first boot was ~58 s and the warm reboot ~22 s. Buttons, USB,
 > Wi-Fi, GPU and RTC are still not implemented.
 >
-> **Device regression:** the B+NOP first boot -> A' and the CI kernel boot were
-> run on the author's unit on 2026-10-22. A second unit/clean-room and the
-> from-IPSW root/shim/ADT builders remain open. See [`GUARANTEE.md`](GUARANTEE.md).
+> **Device regression:** the B+NOP first boot -> A', the CI kernel boot, and
+> the real-touch 0085 boot were run on the author's unit on 2026-10-22. A
+> second unit/clean-room and the from-IPSW root/shim/ADT builders remain open.
+> See [`GUARANTEE.md`](GUARANTEE.md).
 
 ## Demo
 
@@ -37,11 +40,11 @@ project's delta; the workflow verifies the applied tree before building.
 | CPU | 6× Cortex-A55, 16K pages, GICv3, timers |
 | Display | IOSurface/IOMFB → LK framebuffer, 1080×2400 |
 | Userland | launchd → lsd → backboardd → SpringBoard |
-| Input | synthetic HID swipe only; real Goodix not ported |
+| Input | **real Goodix GT9916R** over bit-bang SPI3; unlock, two fingers, edge; 0084 synthetic swipe still available |
 | Storage | UFS LUN 2, read/write HFS+ on `iosroot` |
-| Latest run | B+NOP first boot -> A' (22 s / 30 s from the Apple logo); CI kernel boot |
+| Latest run | real-touch 0085 boot; 0084 B+NOP first boot -> A' (22 s / 30 s from the Apple logo); CI kernel boot |
 | Open | second unit/clean-room; from-IPSW root/shim/ADT builders; strict pinned payload |
-| Not yet | touch/keys, USB, Wi-Fi, GPU, RTC |
+| Not yet | keys, USB, Wi-Fi, GPU, RTC |
 | Safety | AMFI/sandbox/code signing off; data may be lost |
 
 ## Why this milestone matters
@@ -59,10 +62,11 @@ evidence and the wrong turns.
 | `README.md`, `STATUS.md`, `SCOPE.md`, `SAFETY.md` | entry points and boundaries |
 | `ACKNOWLEDGEMENTS.md`, `LEGAL.md` | credits and legal risk notice |
 | `docs/en/`, `docs/zh/` | English and Chinese chapters |
-| `patches/` | own XNU delta: 0080 UFS, 0084 autoswipe; historical 0081-0083 |
-| `ci/` | baseline recipe, canonical patchset hash and provenance |
-| `config/` | 0084 build pins and boot cmdline |
-| `.github/workflows/xnu.yml` | reproduces the bootable 0084 kernel |
+| `touch/` | probe ladder, hardware contract and sanitized lab notes |
+| `patches/` | own XNU delta: 0080 UFS, 0085 Goodix touch; historical 0081-0084 |
+| `ci/` | baseline recipe, canonical patchset hash, kernel segment hash and provenance |
+| `config/` | 0085 real-touch pins and boot cmdline; 0084 as the previous milestone |
+| `.github/workflows/xnu.yml` | reproduces the bootable 0085 kernel and gates its exec-data hash |
 | `src/bringup/` | early boot payloads, shim, image packers |
 | `src/ufs-probe/` | read-only MT6877 UFS probe |
 | `tools/image/` | ICL patch, dyld scanner, boot verifier |
@@ -129,12 +133,12 @@ packs a deterministic image and checks the layout; see
 | Device | Redmi Note 12 Pro 5G, `ruby` / MT6877, 8 GB + 256 GB |
 | System | Android 12 / MIUI 13.0.4, unlocked, Magisk, slot `_a` |
 | Layout | `userdata` 208.4 GiB + `iosroot` 17 GiB; `boot_a` 128 MiB; `super` ~9.1 GB |
-| Current state | `boot_a` holds the reference 0084 image; `iosroot` is A'' (A' + CI kernel runtime writes); Android not restored; ICL NOP |
-| Success artifacts | 0084 image, kernel, root A/A' snapshots, ICL blocks, boot cmdline |
+| Current state | artifacts: real-touch 0085 image/kernel, 0084 image, root A/A' snapshots, ICL blocks, boot cmdline; the device is not part of this repository |
+| Success artifacts | 0085 image, kernel, root A/A' snapshots, ICL blocks, boot cmdline |
 | Must match | firmware/GPT, root hash, boot image, boot args, panel/display |
 | Not needed | touch firmware, Wi-Fi, USB, GPU, RTC |
 
-Root states (external; pinned in `config/0084.env`):
+Root states (external; pinned in `config/0085.env`):
 
 | State | SHA-256 | Meaning |
 |---|---|---|
@@ -144,7 +148,7 @@ Root states (external; pinned in `config/0084.env`):
 | A' first boot | `55e2ab2c...` | one B+NOP first-boot snapshot; new first boots differ |
 
 Device-baseline hashes (GPT/boot/vbmeta) are intentionally **not** published;
-they can fingerprint the unit. Artifact hashes are in `config/0084.env`. See
+they can fingerprint the unit. Artifact hashes are in `config/0085.env`. See
 [`docs/en/device.md`](docs/en/device.md) / [`docs/zh/device.md`](docs/zh/device.md).
 
 ## Scope and safety

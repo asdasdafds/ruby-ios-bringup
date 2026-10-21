@@ -3,8 +3,8 @@
 [English](GUARANTEE.md) · **中文**
 
 **状态 2026-10-22 —— 有单台设备证据的文档化配方。**
-B+NOP 首启 -> A' 和 CI kernel 启动已在作者设备上观察到。这不是已经独立复现
-的第二台/干净室保证；更详细的测试保证暂缓。
+B+NOP 首启 -> A'、CI kernel 启动和 0085 真实触摸启动已在作者设备上观察到。
+这不是已经独立复现的第二台/干净室保证；更详细的测试保证暂缓。
 
 ## 范围
 
@@ -12,7 +12,8 @@ B+NOP 首启 -> A' 和 CI kernel 启动已在作者设备上观察到。这不�
 
 ```
 stock LK -> XNU 8796 -> iOS 16.7.16 用户态
-  -> 锁屏 -> 合成上滑 -> SpringBoard 桌面
+  -> 锁屏 -> 真实底边上滑（0085）-> SpringBoard 桌面
+  或 -> 合成上滑（0084）-> SpringBoard 桌面
 ```
 
 失败路线是历史证据，不在保证范围内。
@@ -24,7 +25,8 @@ stock LK -> XNU 8796 -> iOS 16.7.16 用户态
 - 同一设备情况（ruby / MT6877，Android 12 / MIUI 13.0.4，已解锁，slot
   `_a`，分区布局见 `docs/zh/device.md`）；
 - 同一 boot 镜像和 iOS root/ICL 状态（见下方 hash）；
-- 启动参数为 `config/0084-boot.cmdline`；
+- 启动参数为 `config/0085-boot.cmdline`（合成上滑镜像用
+  `config/0084-boot.cmdline`）；
 - 按 `docs/zh/09-reproduce.md` 和 `docs/zh/05-userland.md` 的步骤操作；
 
 则**预期**能复现成功状态。2026-10-22 在作者一台设备上做过验证；没有做
@@ -37,11 +39,14 @@ stock LK -> XNU 8796 -> iOS 16.7.16 用户态
 | 项 | 值 | 说明 |
 |---|---|---|
 | 基线 | `MakrSas/ios-topaz@5095ac1` | 上游 commit |
-| Patchset | `de1824c2...` | 87 个文件；recipe 输出 |
+| Patchset（0085） | `cf4008e3...` | 88 个文件；与 harness 构建一致 |
+| Patchset（0084） | `de1824c2...` | 87 个文件；上一里程碑 |
 | 0010/0012 改动 | `1edb6633...` | 小的基线补丁 |
-| 原始内核 | `b38fca5f...` | 实际启动的那颗 |
-| CI 重建内核（2026-10-22） | `8a80855d...` | run `39648068844`；已启动；payload 工具 ref `33852e3` |
-| boot 镜像 | `94c639d1...` | 外部；不在仓库 |
+| 真实触摸内核 | `9eb9acac...` | 0085；exec-data `e4823afb...` |
+| 真实触摸镜像 | `ace60d16...` | 外部；不在仓库 |
+| 原始内核（0084） | `b38fca5f...` | 上一里程碑实际启动 |
+| CI 重建内核（0084） | `8a80855d...` | run `39648068844`；已启动；payload 工具 ref `33852e3` |
+| boot 镜像（0084） | `94c639d1...` | 外部；不在仓库 |
 | root 镜像（A） | `e698339d...` | 外部；成功快照；用前复核 |
 | ICL 原块 | `ae317804...` | 还原路径 |
 | ICL 补丁块 | `4a489542...` | 绕过 |
@@ -63,14 +68,19 @@ A' 是首启快照，不是稳定 pin；启动后的 hash 是易变的。
 完整 hash：
 
 ```text
-patchset   de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
+patch85    cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f
+kernel85   9eb9acac8a4c936c1861fba1e0d29c105b714e8d0e6d407b48f4237076e6b947
+execdata85 e4823afb97360e24708184d09c0dc6c9f7280e33d5c4aefbeb901b3fa9b11e3e
+image85    ace60d1645ec271cdbd55b7007456cb578168ca708382aafae8fbf506e68f6c8
+payload85  dbc57e96396f2e3e23213a76d300b1a329e2b4a320bc7363cf99ce0fc9e52b1c
+patch84    de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
 0010/0012  1edb66332bb4daa8b1abcd6c4de77a0e88ed9c7e9bb4a2a7045a2696e53ab338
-kernel     b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
+kernel84   b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
 ci kernel  3ceb9b3490f8c8ecaa74348c3c5cb02d7302d0ec7f87006fe8354e9d2011a831
 ci kernel2 8a80855d1f615cf72f6ebb9f6213d0d55c8f799ad80286f0aab9f80d3215f38a
 ci payload 2749bf1cf398f750d25ed6e84bbb529d5cc5ba3e1ef6be464bff09d0ec87a053
 ci image   87dd4910247cf746df281e77cdf8d63528a148757a82e2b97be58ee5d9183162
-boot       94c639d1f45197718c62bd09c32c72b39710ba23de60f4a04bba96014bce1cb6
+boot84     94c639d1f45197718c62bd09c32c72b39710ba23de60f4a04bba96014bce1cb6
 root A     e698339d0e228609c2d98f16ae8dd44a5149f2ccc19a44b98d5d08845c53f96f
 root B     985c30fcca28cb79e6ad6d30a1ff4b4b6b7306b69d6e480cd7cccf4fb5ca11e3
 root C     34c2882d3b722e53c9755dad3b74284d6ebba6f00256838d407ba3694b1a456d
@@ -87,10 +97,12 @@ root 和 boot 镜像**不在仓库**：它们含不可分发的 Apple/Android �
 
 ## hash 稳定性
 
-固定 / 启动前（身份）：patchset、启动参数、ICL 块、命名的 root 快照
-（A/B/C/A'），以及某次 run 的 kernel/payload/image 工件。CI 构建不是位级
-一致；patchset hash 是门禁；记录该 run 的实际 artifact hash。A' 是一次首启
-快照；新的首启会是一个新状态。
+固定 / 启动前（身份）：0085 patchset `cf4008e3...`、0084 patchset
+`de1824c2...`、启动参数、ICL 块、命名的 root 快照（A/B/C/A'），以及某次
+run 的 kernel/payload/image 工件。CI 构建不是位级一致；patchset hash 是
+源码门禁，Mach-O exec-data hash 是工件门禁（0085 参考 `e4823afb...`）；
+记录该 run 的实际完整 artifact hash。A' 是一次首启快照；新的首启会是一个
+新状态。
 
 易变 / 启动后（不要求相同）：任何启动后的 live root（A' -> A''）、
 UUID/时间戳、日志/缓存、SWEETLOG ring 及其解码文本、UI 像素/时序。契约是
@@ -99,8 +111,8 @@ hash。
 
 ## 保证
 
-- Patchset 和 recipe：workflow 只有在 recipe 还原出 `de1824c2...`（87 个
-  文件）时才编译；CI 已绿。
+- Patchset 和 recipe：workflow 只有在 recipe 还原出 `cf4008e3...`（88 个
+  文件）时才编译；0085 的首次 CI 待推送后运行，完成后记录 artifact hash。
 - 离线工具：host 检查、合成与真实 ICL 块往返。
 - 成功路径的文档化步骤和范围。
 - 2026-10-22 的单台设备证据（B+NOP 首启 -> A'、CI kernel 启动），作为
@@ -136,7 +148,7 @@ hash。
 - 严格 pin 的 payload 重建（2026-10-22 的测试用了 ref `33852e3`）；
 - root builder 和 shim/ADT builder 作为干净室工具；
 - 原始 ICL 块回归；
-- 真实触摸、按键和 USB；
+- 按键和 USB；
 - 长时间稳定性；
 - 第二台/干净室设备回归；单台首启和 CI kernel 已在 2026-10-22 跑过。
 

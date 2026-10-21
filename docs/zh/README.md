@@ -22,7 +22,8 @@
 | [`03-boot-chain`](03-boot-chain.md) | LK、128 MiB 镜像、看门狗/console |
 | [`04-display`](04-display.md) | surface 到 panel、缓存维护 |
 | [`05-userland`](05-userland.md) | launchd/LS/MG 死锁、ICL NOP 反汇编 |
-| [`06-input`](06-input.md) | SweetHID、边缘位、合成上滑 |
+| [`06-input`](06-input.md) | 真实 Goodix 触摸、SweetHID、边缘位、合成上滑 |
+| [`touch-goodix-9916r`](touch-goodix-9916r.md) | GT9916R 硬件、上电/协议手册、bring-up 记录 |
 | [`07-experiments`](07-experiments.md) | 时间线、失败目录、决策记录 |
 | [`08-recovery`](08-recovery.md) | Android 恢复、TWRP、raw I/O |
 | [`09-reproduce`](09-reproduce.md) | 构建、打包、刷写、验证 |

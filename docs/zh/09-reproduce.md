@@ -26,13 +26,14 @@
 ```text
 base:     MakrSas/ios-topaz @ 5095ac19dbdcf37b64b81fe443f4027ad51b84bf
 recipe:   ci/prepare-baseline.sh（不 vendor 上游树）
-patchset: de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
+patchset: cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f
+exec-data: e4823afb97360e24708184d09c0dc6c9f7280e33d5c4aefbeb901b3fa9b11e3e
 dxb:      blacktop/darwin-xnu-build @ 663906528d1cd5ea8fde7de6f16de73db9511549
 runner:   macos-14, Xcode 15.0.1, macOS 13.5 xnu
 config:   DEVELOPMENT, MACHINE_CONFIG=SWEET, -mcpu=cortex-a55
 ```
 
-从 **Actions → xnu-0084 → Run workflow** 运行，或推送 `ci/`、`patches/`、
+从 **Actions → xnu-0085 → Run workflow** 运行，或推送 `ci/`、`patches/`、
 `config/`、workflow 的改动。产物：`xnu-kernel`、`xnu-buildtree`。
 
 ## Host pipeline
@@ -114,7 +115,7 @@ fastboot reboot
   Home Bar。
 - 合成上滑解锁到桌面，动画正常。
 - 可能有黑壁纸、`Waiting...` widget、Messages badge。
-- 触摸/按键/USB/Wi-Fi/GPU/RTC 未通。
+- 0085 内核真实触摸已通（底边上滑解锁、双指、edge）；按键、USB、Wi-Fi、GPU、RTC 未通。
 - 启动前镜像 hash 固定；启动后的 live-root/ring/日志 hash 和时序易变（见
   `GUARANTEE.zh.md` 的「hash 稳定性」）。
 

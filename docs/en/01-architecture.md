@@ -34,7 +34,7 @@ avoiding an `hdr_loaded` rejection.
 | Root | HFS+ in `iosroot` | pulled v14 + seed; not in the repo |
 | Userland | iOS 16.7.16 | ICL 4-byte NOP |
 | Display | IOSurface/IOMFB | 0081 debug path |
-| Input | SweetHID | 0084 autoswipe; no real touch yet |
+| Input | SweetHID | real Goodix touch (0085); 0084 autoswipe retained |
 
 ## The three walls
 

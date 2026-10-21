@@ -23,7 +23,8 @@ personal paths, device identifiers or Apple binaries here.
 | [`03-boot-chain`](03-boot-chain.md) | LK, 128 MiB image, WDT/console |
 | [`04-display`](04-display.md) | surface to panel, cache maintenance |
 | [`05-userland`](05-userland.md) | launchd/LS/MG deadlock, ICL NOP disassembly |
-| [`06-input`](06-input.md) | SweetHID, edge tip, autoswipe |
+| [`06-input`](06-input.md) | real Goodix touch, SweetHID, edge tip, autoswipe |
+| [`touch-goodix-9916r`](touch-goodix-9916r.md) | GT9916R hardware, power/protocol manual, bring-up history |
 | [`07-experiments`](07-experiments.md) | timeline, failure catalogue, decisions |
 | [`08-recovery`](08-recovery.md) | Android restore, TWRP, raw I/O |
 | [`09-reproduce`](09-reproduce.md) | build, pack, flash, verify |

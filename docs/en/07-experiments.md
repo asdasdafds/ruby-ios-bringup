@@ -23,6 +23,7 @@ wrong turns.
 | 10-21 | Trace | 0083 `SWEET IOX:` | `sent=1`; kernel was clean |
 | 10-21 | ICL NOP | 4-byte `bl`→`nop` | boot22 lock screen 58 s |
 | 10-21 | Autoswipe | 0084 kernel timer | boot23 warm 22 s from the Apple logo, home screen, animations |
+| 10-22 | Real touch | 0085 Goodix SPI bit-bang, LDO VOUT 1.8/3.3 V | real bottom-edge unlock, two fingers, edge |
 
 ## Failure catalogue
 
@@ -42,6 +43,10 @@ wrong turns.
 | Widgets `Waiting...` | WidgetKit/chronod/extensions | open | open |
 | Date Dec 31 | no RTC/NTP | clock advances? | open |
 | Original ICL block untested | NOP is a bypass | restore and boot | open |
+| Goodix `CONF`/`VER` all zero | LDO VOUT left at PMIC defaults 3.0 V/1.8 V; only enable written | read LDO3 `0x09`, LDO2 `0x15` | write `0x3a`/`0xd0` |
+| Controller read all zero after a write | 3 leftover FIFO bytes shift the read prefix | FIFO push count / `SPI_CMD_RST` | bit-bang; controller needs reset or DMA |
+| Probe panic `0x96000021` | LLVM emitted an unaligned SIMD load with the MMU off | disassemble; FAR points into the stack | no-vectorize + volatile reads |
+| `VER CS ok=1` on all-zero data | the checksum of zeros is zero | check non-zero data and `BERLIN` | reject all-zero |
 
 ## Decision records
 
@@ -69,6 +74,14 @@ offline raw I/O requires flashing TWRP to `boot_a`.
 
 **D8 — No firmware/diff data in the repo.** Images, iOS root, device dumps and
 block diffs are not distributable and may contain personal data.
+
+**D9 — Bit-bang SPI before the controller.** The controller path mixed FIFO,
+pad-select and CS behavior; the bit-bang probe removed those variables and
+proved the chip. Revisit the controller (DMA or FIFO reset) for rate/IRQ later.
+
+**D10 — Write LDO VOUT, not just enable.** LK/PMIC defaults are VMC 3.0 V and
+VTP 1.8 V; enabling without writing VOUT leaves AVDD undervolted and the chip
+silent. Read the old VOUT, power-cycle, write 1.8 V/3.3 V, read back.
 
 ## Do not repeat
 

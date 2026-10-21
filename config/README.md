@@ -1,30 +1,32 @@
 # Config
 
-`0084.env` and `0084-boot.cmdline` record the exact state that reached the
-SpringBoard home screen on 2026-10-21. They are provenance, not universal
-defaults:
+`0085.env` and `0085-boot.cmdline` record the state that first provided real
+Goodix touch on 2026-10-22. `0084.env` and `0084-boot.cmdline` are the previous
+milestone (synthetic autoswipe). They are provenance, not universal defaults:
 
 - `cpus=6` selects the six Cortex-A55 cores on this `ruby` unit.
 - `ufsroot=iosroot`, `ufslun=2` and `sweethw=0` describe the author's
   partition layout.
-- `sweetautoswipe=90000` arms the synthetic home swipe 90 s after boot.
+- `sweetgt=1` enables the Goodix GT9916R bit-bang SPI driver. `sweetgt=0`
+  disables it.
+- The 0085 cmdline intentionally omits `sweetautoswipe`, so only real touch
+  drives the UI.
 - `sweetfb_hz=30` and `sweetfb_noconsole=1` are display/debug choices.
 
-The kernel SHA and image SHA in `0084.env` are from the original build and are
-a reference, not a reproducibility gate. The boot image itself is not included.
+The kernel SHA and image SHA in `0085.env` are from the build that booted.
+A CI rebuild is not promised to be byte-identical; the canonical patchset hash
+and the Mach-O exec-data hash are the gates. The boot image itself is not
+included.
 
-The workflow runs `ci/prepare-baseline.sh` and gates on the canonical patchset
-hash; it does not pack the boot image. See `../ci/README.md` and
-`../src/bringup/`.
+The workflow runs `ci/prepare-baseline.sh` and gates on the patchset hash; it
+does not pack the boot image. See `../ci/README.md` and `../src/bringup/`.
 
 Device-baseline hashes (GPT/boot/vbmeta) are intentionally **not** published;
 they can fingerprint the unit. The device situation is described in
 `../docs/en/device.md` and `../docs/zh/device.md`. Artifact hashes stay here.
 
 Host pipeline pins: `SHIM_SHA256`, `PAYLOAD_SHA256`, `ADT_SHA256` and
-`BASE_BOOT_SHA256` are external inputs; `PAYLOAD_OFF=0x14000`;
-`REBUILD_IMAGE_SHA256` is the deterministic packer output (layout-equivalent to
-the booted image, not a replacement for `IMAGE_SHA256`).
+`BASE_BOOT_SHA256` are external inputs; `PAYLOAD_OFF=0x14000`.
 
 The `PAGE`/`KERNEL_SIZE`/`RAW_LEN`/`SHIM_SIZE`/`SWEETXNU_*` values are the
 expected layout for `boot_layout.py --config`; they remove the golden-image

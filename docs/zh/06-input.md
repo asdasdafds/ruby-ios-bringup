@@ -1,19 +1,48 @@
-# 06 — 输入与合成上滑
+# 06 — 输入：Goodix 触摸与合成上滑
 
 [English](../en/06-input.md) · **中文**
 
-真实触摸驱动还没移植。0084 用内核定时器调用 `SweetHIDTouch::touch()`，
-证明 HID 链路；真实驱动以后喂同一个入口即可。
+0085 内核通过 GPIO bit-bang SPI3 驱动真实的 Goodix GT9916R；0084 的合成
+上滑保留为回退路径和 HID 链路证明。完整的硬件/协议手册见
+[touch-goodix-9916r.md](touch-goodix-9916r.md)。
 
-## 链路
+## 真实触摸（0085）
 
 ```
-kernel timer -> SweetHIDTouch::touch()
+内核线程（100 Hz 轮询）
+  -> 0x10308 触摸帧（线上 34 字节，数据 26 字节）
+  -> head/point checksum，清 sync
+  -> sweet_hid_touch(id, down, raw_x/10, raw_y/10)
+  -> IOHIDEventService -> backboardd -> SpringBoard
+```
+
+驱动做的事：
+
+- 把 MT6360 LDO3（VMC）设为 1.8 V、LDO2（VTP）设为 3.3 V 并使能，
+  同时拉高 IOVDD 开关 GPIO110；LK/PMIC 默认是 3.0 V/1.8 V，**只写
+  enable 位不够**；
+- 复位 GPIO15：低 10 ms、高 100 ms；
+- 把 SPI3 的 160–163 切成 GPIO，按 Mode 0、约 250 kHz bit-bang；
+- 上报前验证 `dev_confirm`（`0x10000` 写 8×0xAA）和 `0x10014` 版本
+  （`BERLIN`、PID `9916R`、U8-LE checksum）；
+- 轮询 `0x10308`，校验 8 字节 head 和 point checksum，写 0 清 sync；
+  最多上报两指；raw 坐标除以 10（10800×24000 -> 1080×2400），不翻转；
+- 手指消失、或连续 50 次坏读时释放。
+
+实机证据：`SWEET GT: BERLIN/9916R ready, 1080x2400`；206 down / 206 up，
+40 条双指、84 条 edge；真实底边上滑解锁成功。限制：轮询、无 IRQ/ESD、
+最多两指、不做固件/config 下载。
+
+## HID 链路
+
+```
+SweetHIDTouch::touch()
   -> IOHIDEventService -> IOHIDEventSystem
   -> backboardd -> SpringBoard
 ```
 
-定时器由 boot args 控制；不加 `sweetautoswipe` 完全不触发。
+真实驱动和合成定时器共用这个入口。`touch()` 期望面板像素
+（0..1079 × 0..2399），所以喂 `raw/10`。
 
 ## 边缘位
 
@@ -23,10 +52,10 @@ kernel timer -> SweetHIDTouch::touch()
 | 区域判据 | `y > 2399 - 48` | 置 `kIOHIDDigitizerEventFromEdgeTip` |
 | 原因 | UIKit 的 home 手势需要 edge 位 | 否则只是一次拖动 |
 
-0071 加了 edge-tip 位。合成滑动从 y=2390 开始，第一次 down 就带 edge；
-boot23 三次尝试的 down/up 全部是 `edge`。
+0071 加了 edge-tip 位；0084 合成滑动从 y=2390 开始，真实底边上滑同样带
+这个位。
 
-## Boot args
+## 合成上滑（0084，保留）
 
 | 参数 | 含义 | 0084 值 |
 |---|---|---|
@@ -34,37 +63,10 @@ boot23 三次尝试的 down/up 全部是 `edge`。
 | `sweetautoswiperetry` | 重试间隔 ms（最小 1000） | `15000` |
 | `sweetautoswipeattempts` | 次数（最大 8） | `3` |
 
-## 三种手势
-
-| 变体 | Y 路径 | 步长 | 说明 |
-|---|---|---|---|
-| 0 | 2390→2100→1800→1500→1200 | 50 ms | 短滑 |
-| 1 | 2390→…→380 | 40 ms | 长滑 |
-| 2 | 2390→2150→…→900 | 60 ms，x=520 | 慢滑 |
-
-一次启动里试三种手势，避免反复调参。作者机器上第三次解锁；日志没有成功
-标志，具体哪次命中是观察结论。
-
-## 证据
-
-- `SWEET HID: autoswipe armed in 90000 ms attempts=3 retry=15000 ms`。
-- 第 1 次：变体 0，down `540,2390 edge`，up `540,1200 edge`。
-- 第 2 次：变体 1，down/up edge。
-- 第 3 次：变体 2，down `520,2390 edge`，up `520,900 edge`；
-  `autoswipe done after 3 attempts`。
-- 没有 lsd/SpringBoard/backboardd 崩溃；`driverkitd` 和 `PosterBoard` 崩溃
-  （PosterBoard 是首启 poster 配置，不是 HID）。
-- boot22（打补丁后首次启动）：58 秒；boot23（热重启）：22 秒到锁屏，
-  解锁到桌面，动画正常。
-
-## 真实触摸的下一步
-
-GT9916R 在 SPI3（`0x11013000`，IRQ GPIO14，reset GPIO15，DVDD GPIO110）。
-写驱动前先在 Android 侧确认 TM/GVO 固件变体。坐标喂给现有 `touch()`，
-不要重做 HID 层。
+0085 的启动 cmdline 去掉了这些参数，使用 `sweetgt=1`。设 `sweetgt=0`
+即可关闭 Goodix 驱动，不需要重编。
 
 ## 用户态限制
 
 当前 iOS root 没有 `/bin/sh`、`/usr/bin/log`、`launchctl`、`notifyutil`；
-`hidutil` 只能读写 HID 属性。用户态注入要签名/entitlement 的 arm64 二进制，
-所以内核定时器是更小的路径。
+`hidutil` 只能读写 HID 属性。因此内核驱动是更小的路径。

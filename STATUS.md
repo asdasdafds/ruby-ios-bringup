@@ -12,7 +12,8 @@ status. No phone is attached to this repository or to its CI.
 | ICL NOP | dyld `.15`, iosroot 4K block `2438140`, `02255e95 -> 1f2003d5` | original block SHA `ae317804...`; patched `4a489542...`; backup exists |
 | UFS root | LUN 2, GPT header at 512 / entries 1024, `iosroot` partition | read/write HFS+ mount on the author's device |
 | Display | IOSurface/IOMFB to LK framebuffer; 1080x2400 | surface markers and live UI |
-| HID path | `SweetHIDTouch -> IOHIDEventService -> backboardd -> SpringBoard` | synthetic autoswipe reaches SpringBoard |
+| HID path | `SweetHIDTouch -> IOHIDEventService -> backboardd -> SpringBoard` | synthetic autoswipe + real touch reach SpringBoard |
+| Real touch | Goodix GT9916R/BerlinD over bit-bang SPI3; bottom-edge unlock, two fingers, edge events | 0085 boot 2026-10-22; `SWEET GT` init log and 206 down/206 up touch records; see `docs/en/touch-goodix-9916r.md` |
 | Patch checks | 0084/0083/0081 apply to the pre-0084 build tree; 0080/0082 are already applied | host-side `git apply --check`, 2026-10-21 |
 | ICL tool | original block -> patched block reproduces `4a489542...` | host-side round-trip, 2026-10-21 |
 | Host pipeline | payload `50701e81...`; deterministic rebuild `a0ce0fe1...`; layout PASS vs 0084 | host-only, 2026-10-21; no root/phone |
@@ -26,34 +27,33 @@ repository. Only their hashes and conclusions are recorded. Pre-boot image
 hashes are fixed for the named files; post-boot root/ring/log hashes are
 volatile and are not a contract (see `VERIFICATION.md` "Hash stability").
 
-## Build provenance (0084)
+## Build provenance (0085)
 
-- Baseline: `MakrSas/ios-topaz` @ `5095ac19dbdcf37b64b81fe443f4027ad51b84bf` (fetched by
-  commit; the upstream `topaz` branch has since moved to `89451b8`).
+- Baseline: `MakrSas/ios-topaz` @ `5095ac19dbdcf37b64b81fe443f4027ad51b84bf`.
 - Recipe: `ci/prepare-baseline.sh`; canonical patchset
-  `de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360`
-  (87 files). The upstream tree and the old full delta are not in the repo.
+  `cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f`
+  (88 files). The same canonical patchset built the booted 0085 kernel in the
+  harness.
 - 0010/0012 change: `ci/baseline-changes.patch`, SHA256 `1edb6633...`.
-- Historical origin: `ruby@00d46e7` (the patchset was taken from it; the
-  recipe itself does not fetch that branch).
+- Historical origin: harness commit `8716a06`.
 - Build harness: `blacktop/darwin-xnu-build` @ `6639065`; macOS 13.5 / Xcode
   15.0.1 on a `macos-14` runner; `DEVELOPMENT` + `MACHINE_CONFIG=SWEET`,
   `-mcpu=cortex-a55`.
-- Reference kernel SHA256 `b38fca5f...`; reference boot image SHA256
-  `94c639d1...`. A rebuild may differ; the patchset hash is the gate.
-- Workflow: `.github/workflows/xnu.yml`. It runs the recipe and enforces the
-  patchset hash before building; see `ci/README.md`.
-- CI: the kernel build and host checks were green before the final
-  docs/template-only amendment; see Actions. Historical rebuilt kernel SHA256
-  `3ceb9b34...`; reference original `b38fca5f...`; builds are not
-  bit-identical.
-- 2026-10-22 CI run `39648068844` on commit `7418bce` built kernel
-  `8a80855d...`; payload `2749bf1c...`; image `87dd4910...`. It was flashed and
-  booted to the home screen on the author's unit. The payload tool came from
-  upstream ref `33852e3`, not the pinned `5095ac1`.
-- **Device regression:** the first boot from B+NOP -> A' and the CI kernel boot
-  were run on the author's unit on 2026-10-22; a second unit / clean-room is
-  still open. Device-baseline hashes are intentionally not published.
+- Booted kernel SHA256 `9eb9acac...`; exec-data hash `e4823afb...` (the
+  artifact-level gate); boot image `ace60d16...`.
+- Workflow: `.github/workflows/xnu.yml`. It runs the recipe, enforces the
+  patchset hash, and gates the built kernel's exec-data hash against
+  `e4823afb...`; see `ci/README.md`.
+
+### Previous milestone (0084)
+
+- Patchset `de1824c2...` (87 files); 0084 kernel `b38fca5f...` (reference) and
+  `8a80855d...` (2026-10-22 CI run `39648068844`); image `94c639d1...`.
+- The 0084 synthetic autoswipe reached the home screen; real touch was not
+  implemented yet.
+- **Device regression:** the 0084 first boot and CI kernel boot were run on the
+  author's unit on 2026-10-22; a second unit / clean-room is still open.
+  Device-baseline hashes are intentionally not published.
 
 ## Reproducibility guarantee
 
@@ -66,7 +66,7 @@ of `VERIFICATION.md`.
 
 ## Not working
 
-- Real touch (Goodix GT9916R over SPI3) and hardware buttons.
+- Hardware buttons.
 - USB, Wi-Fi, Bluetooth, cellular, audio, camera, GPU, RTC.
 - MobileGestalt cache is absent; the ICL NOP is a bypass, not a fix.
 - The original (unpatched) ICL block has not been regression-tested after the
@@ -77,9 +77,11 @@ of `VERIFICATION.md`.
 
 - **host-verified**: commands and tools run on the author's PC against local
   files; see `VERIFICATION.md`.
-- **device-verified (2026-10-22)**: B+NOP first boot -> A' and the CI kernel
-  boot were observed on the author's unit. Post-boot hashes (live root, ring,
-  logs) are volatile observations, not fixed pins.
+- **device-verified (2026-10-22)**: B+NOP first boot -> A', the CI kernel boot,
+  and the real-touch 0085 boot were observed on the author's unit. The 0085
+  sweetlog shows `BERLIN/9916R`, 206 down / 206 up records, 40 two-finger and
+  84 edge records. Post-boot hashes (live root, ring, logs) are volatile
+  observations, not fixed pins.
 - **not verified**: everything else, including a from-scratch public
   reproduction on a different ruby unit, a second-unit boot, and the strict
   pinned payload rebuild (the CI test used ref `33852e3`).

@@ -40,7 +40,8 @@
 | `HID` | 人机接口设备 | `IOHIDEventService` 路径 |
 | `SweetHID` | 内核 HID 服务 | `SweetHIDTouch` / `SweetHIDButtons` |
 | `edge tip` | `kIOHIDDigitizerEventFromEdgeTip` | home 手势必需位 |
-| `GVO` / `TM` | Goodix 固件变体 | 需在 Android 侧确认 |
+| `GVO` / `TM` | Goodix 固件变体 | 本机为 **TM**；不使用 GVO |
+| `SWEET GT` | XNU Goodix 驱动日志前缀 | `bsd/dev/sweet_goodix_spi.c` |
 | `kpd` | 键盘驱动 | `mtk-kpd @ 0x10010000` |
 
 ## 用户态

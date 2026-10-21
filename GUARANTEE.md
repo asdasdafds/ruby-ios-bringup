@@ -3,9 +3,9 @@
 **English** · [中文](GUARANTEE.zh.md)
 
 **Status 2026-10-22 — documented recipe with one-unit device evidence.**
-B+NOP first boot -> A' and a CI kernel boot were observed on the author's unit.
-This is not an independently reproduced second-unit or clean-room guarantee.
-Detailed test guarantees are deferred.
+B+NOP first boot -> A', a CI kernel boot, and a real-touch 0085 boot were
+observed on the author's unit. This is not an independently reproduced
+second-unit or clean-room guarantee. Detailed test guarantees are deferred.
 
 ## Scope
 
@@ -13,7 +13,8 @@ Only the success path is covered:
 
 ```
 stock LK -> XNU 8796 -> iOS 16.7.16 userland
-  -> lock screen -> synthetic swipe -> SpringBoard home screen
+  -> lock screen -> real bottom-edge swipe (0085) -> SpringBoard home screen
+  or -> synthetic swipe (0084) -> SpringBoard home screen
 ```
 
 Failed routes are historical evidence, not covered by this guarantee.
@@ -40,11 +41,14 @@ configuration.
 | Item | Value | Note |
 |---|---|---|
 | Baseline | `MakrSas/ios-topaz@5095ac1` | upstream commit |
-| Patchset | `de1824c2...` | 87 files; recipe output |
+| Patchset (0085) | `cf4008e3...` | 88 files; recipe output; same as the harness build |
+| Patchset (0084) | `de1824c2...` | 87 files; previous milestone |
 | 0010/0012 change | `1edb6633...` | small baseline patch |
-| Reference kernel | `b38fca5f...` | the kernel that booted |
-| CI rebuild (2026-10-22) | `8a80855d...` | run `39648068844`; booted; payload tool ref `33852e3` |
-| Boot image | `94c639d1...` | external; not in the repo |
+| Real-touch kernel | `9eb9acac...` | 0085; exec-data `e4823afb...` |
+| Real-touch image | `ace60d16...` | external; not in the repo |
+| Reference kernel (0084) | `b38fca5f...` | the previous kernel that booted |
+| CI rebuild (0084) | `8a80855d...` | run `39648068844`; booted; payload tool ref `33852e3` |
+| Boot image (0084) | `94c639d1...` | external; not in the repo |
 | Root image (A) | `e698339d...` | external; success snapshot; verify before use |
 | ICL original block | `ae317804...` | restore path |
 | ICL patched block | `4a489542...` | bypass |
@@ -67,14 +71,19 @@ stable pin; post-boot hashes are volatile.
 Full hashes:
 
 ```text
-patchset   de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
+patch85    cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f
+kernel85   9eb9acac8a4c936c1861fba1e0d29c105b714e8d0e6d407b48f4237076e6b947
+execdata85 e4823afb97360e24708184d09c0dc6c9f7280e33d5c4aefbeb901b3fa9b11e3e
+image85    ace60d1645ec271cdbd55b7007456cb578168ca708382aafae8fbf506e68f6c8
+payload85  dbc57e96396f2e3e23213a76d300b1a329e2b4a320bc7363cf99ce0fc9e52b1c
+patch84    de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
 0010/0012  1edb66332bb4daa8b1abcd6c4de77a0e88ed9c7e9bb4a2a7045a2696e53ab338
-kernel     b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
+kernel84   b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
 ci kernel  3ceb9b3490f8c8ecaa74348c3c5cb02d7302d0ec7f87006fe8354e9d2011a831
 ci kernel2 8a80855d1f615cf72f6ebb9f6213d0d55c8f799ad80286f0aab9f80d3215f38a
 ci payload 2749bf1cf398f750d25ed6e84bbb529d5cc5ba3e1ef6be464bff09d0ec87a053
 ci image   87dd4910247cf746df281e77cdf8d63528a148757a82e2b97be58ee5d9183162
-boot       94c639d1f45197718c62bd09c32c72b39710ba23de60f4a04bba96014bce1cb6
+boot84     94c639d1f45197718c62bd09c32c72b39710ba23de60f4a04bba96014bce1cb6
 root A     e698339d0e228609c2d98f16ae8dd44a5149f2ccc19a44b98d5d08845c53f96f
 root B     985c30fcca28cb79e6ad6d30a1ff4b4b6b7306b69d6e480cd7cccf4fb5ca11e3
 root C     34c2882d3b722e53c9755dad3b74284d6ebba6f00256838d407ba3694b1a456d
@@ -92,10 +101,12 @@ they can fingerprint the unit. The device situation is described in
 
 ## Hash stability
 
-Fixed / pre-boot (identity): the patchset, boot args, ICL blocks, the named
-root snapshots (A/B/C/A') and the named kernel/payload/image artifacts for a
-specific run. Kernel CI builds are not bit-identical; the patchset hash is the
-gate; record the actual artifact hash for each run. A' is one first-boot
+Fixed / pre-boot (identity): the 0085 patchset `cf4008e3...` and 0084 patchset
+`de1824c2...`, boot args, ICL blocks, the named root snapshots (A/B/C/A') and
+the named kernel/payload/image artifacts for a specific run. Kernel CI builds
+are not bit-identical; the patchset hash is the source gate and the Mach-O
+exec-data hash is the artifact-level gate; record the actual full artifact hash
+for each run. The 0085 exec-data reference is `e4823afb...`. A' is one first-boot
 snapshot; a new first boot is a new state.
 
 Volatile / post-boot (do not require these to match): the live root after any
@@ -107,7 +118,8 @@ whole-disk hash.
 ## Guaranteed
 
 - The patchset and recipe: the workflow refuses to build unless the recipe
-  reproduces `de1824c2...` (87 files); CI is green.
+  reproduces `cf4008e3...` (88 files). The first 0085 CI run is pending the
+  repository push; record its artifact hash when it completes.
 - The offline tools: host checks, synthetic and real ICL block round-trips.
 - The documented success-path procedure and its scope.
 - The 2026-10-22 one-unit device evidence (B+NOP first boot -> A', CI kernel
@@ -145,7 +157,7 @@ Deferred due to time and effort, not because they are known to fail:
 - strict pinned payload rebuild (the 2026-10-22 test used ref `33852e3`);
 - root builder and shim/ADT builder as clean-room tools;
 - original ICL block regression;
-- real touch, keys and USB;
+- keys and USB;
 - long-run stability;
 - second-unit/clean-room device regression; the one-unit first boot and CI
   kernel were run on 2026-10-22.

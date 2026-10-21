@@ -22,6 +22,7 @@
 | 10-21 | Trace | 0083 `SWEET IOX:` | `sent=1`；内核清白 |
 | 10-21 | ICL NOP | 4 字节 `bl`→`nop` | boot22 锁屏 58 秒 |
 | 10-21 | 合成上滑 | 0084 内核定时器 | boot23 热重启从 Apple logo 起 22 秒，桌面，动画 |
+| 10-22 | 真实触摸 | 0085 Goodix SPI bit-bang、LDO VOUT 1.8/3.3 V | 真实底边上滑解锁、双指、edge |
 
 ## 失败目录
 
@@ -41,6 +42,10 @@
 | Widget `Waiting...` | WidgetKit/chronod/扩展 | 未解 | 未解 |
 | 日期 12 月 31 日 | 无 RTC/NTP | 时钟是否在走 | 未解 |
 | 原始 ICL 块未回归 | NOP 是绕过 | 还原后启动 | 未解 |
+| Goodix `CONF`/`VER` 全 0 | LDO VOUT 仍为 PMIC 默认 3.0 V/1.8 V，只写了 enable | 读 LDO3 `0x09`、LDO2 `0x15` | 写 `0x3a`/`0xd0` |
+| 写成功后控制器读全 0 | FIFO 剩 3 字节，读前缀错位 | FIFO 压入计数 / `SPI_CMD_RST` | 用 bit-bang；控制器需复位或 DMA |
+| probe panic `0x96000021` | MMU 关闭时 LLVM 生成非对齐 SIMD load | 反汇编；FAR 指向栈 | 关向量化 + volatile |
+| 全 0 数据 `VER CS ok=1` | 全 0 的 checksum 也是 0 | 检查非零数据和 `BERLIN` | 拒绝全 0 |
 
 ## 决策记录
 
@@ -67,6 +72,14 @@ A76 暂未使用。
 
 **D8 — 仓库不放固件/diff 数据。** 镜像、iOS root、设备 dump、块 diff 不可
 分发，也可能含个人数据。
+
+**D9 — 先用 bit-bang SPI，再回头用控制器。** 控制器路径混了 FIFO、
+pad-select 和 CS 行为；bit-bang 去掉这些变量并证明了芯片。以后再为
+速率/IRQ 优化控制器（DMA 或 FIFO reset）。
+
+**D10 — 必须写 LDO VOUT，不能只写 enable。** LK/PMIC 默认 VMC 3.0 V、
+VTP 1.8 V；只 enable 会让 AVDD 欠压、芯片沉默。先读旧 VOUT，断电，
+写 1.8 V/3.3 V，再回读。
 
 ## 不要重复
 

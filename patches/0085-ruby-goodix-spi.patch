@@ -1,0 +1,749 @@
+--- a/bsd/conf/files
++++ b/bsd/conf/files
+@@ -108,6 +108,7 @@
+ bsd/dev/sweet_sample.c			standard
+ bsd/dev/sweet_keys.c			standard
+ bsd/dev/sweet_touch.c			standard
++bsd/dev/sweet_goodix_spi.c		standard
+ bsd/dev/sweet_rpmh.c			standard
+ bsd/dev/sweet_spmi.c			standard
+ bsd/dev/sweet_usb.c			standard
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -52,6 +52,7 @@
+ extern void sweet_sample_start(void);
+ extern void sweet_keys_init(void);
+ extern void sweet_touch_init(void);
++extern void sweet_goodix_spi_init(void);
+ extern void sweet_usb_probe(void);
+ 
+ #define REG_CAP         0x00
+@@ -699,6 +700,7 @@
+ 	} else {
+ 		printf("SWEET UFS: keys/touch/USB skipped (ruby, sweethw=0)\n");
+ 	}
++	sweet_goodix_spi_init();
+ 	return 0;
+ }
+ 
+diff --git a/bsd/dev/sweet_goodix_spi.c b/bsd/dev/sweet_goodix_spi.c
+new file mode 100644
+--- /dev/null
++++ b/bsd/dev/sweet_goodix_spi.c
+@@ -0,0 +1,716 @@
++/*
++ * Ruby (MT6877) Goodix GT9916R BerlinD touch.
++ *
++ * The vendor driver is gt9916r over SPI3 (pins 160-163).  This first
++ * version uses the proven GPIO bit-bang path instead of the MTK SPI
++ * controller: Mode 0, 8-bit, CS active low, 250 kHz.  Power follows
++ * the vendor sequence, including the MT6360 LDO VOUT registers that
++ * LK leaves at their 3.0 V / 1.8 V defaults.
++ *
++ * Only MT6360 LDO3/LDO2 EN+VOUT, GPIO 132/133 (I2C5), 160-163 (SPI3),
++ * reset 15 and IOVDD 110 are touched.  No firmware/config upload.
++ */
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++
++#include <sys/param.h>
++#include <sys/systm.h>
++#include <sys/errno.h>
++#include <kern/clock.h>
++#include <kern/thread.h>
++#include <kern/sched_prim.h>
++#include <machine/machine_routines.h>
++#include <pexpert/pexpert.h>
++
++extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
++extern kern_return_t thread_terminate(thread_t);
++extern void sweet_hid_touch(int finger, int down, int x, int y);
++
++#define GT_MAX		10
++
++#define GT_GPIO_PA	0x10005000u
++#define GT_DIR(n)	(0x000u + ((n) * 0x10u))
++#define GT_DO(n)	(0x100u + ((n) * 0x10u))
++#define GT_DI(n)	(0x200u + ((n) * 0x10u))
++#define GT_MODE(n)	(0x300u + ((n) * 0x10u))
++
++/* I2C5: GPIO132 SCL / GPIO133 SDA, bank 4 */
++#define GT_SCL		(1u << 4)
++#define GT_SDA		(1u << 5)
++#define GT_I2C_MODE	0x400u	/* pins 128-135 = group 16 */
++#define GT_I2C_DIR	GT_DIR(4)
++#define GT_I2C_DO	GT_DO(4)
++#define GT_I2C_DI	GT_DI(4)
++
++/* SPI3: GPIO160 MO / 161 MI / 162 CS / 163 CLK, bank 5 */
++#define GT_MO		(1u << 0)
++#define GT_MI		(1u << 1)
++#define GT_CS		(1u << 2)
++#define GT_CLK		(1u << 3)
++#define GT_SPI_MODE	0x440u	/* pins 160-167 = group 20 */
++#define GT_SPI_DIR	GT_DIR(5)
++#define GT_SPI_DO	GT_DO(5)
++#define GT_SPI_DI	GT_DI(5)
++
++/* reset GPIO15 (bank 0), IOVDD switch GPIO110 (bank 3) */
++#define GT_RESET	(1u << 15)
++#define GT_IOVDD	(1u << 14)
++#define GT_RESET_DIR	GT_DIR(0)
++#define GT_RESET_DO	GT_DO(0)
++#define GT_IOVDD_DIR	GT_DIR(3)
++#define GT_IOVDD_DO	GT_DO(3)
++
++/* MT6360 on I2C5 */
++#define GT_PMIC_ADDR	0x64
++#define GT_LDO3_EN	0x05
++#define GT_LDO3_VOUT	0x09
++#define GT_LDO2_EN	0x11
++#define GT_LDO2_VOUT	0x15
++
++static struct {
++	vm_offset_t gpio;
++	bool started;
++	uint32_t active;
++	int x[GT_MAX], y[GT_MAX];
++} gt;
++
++static int gt_sleep_chan;
++
++static uint32_t
++gt_rd(uint32_t off)
++{
++	uint32_t v = *(volatile uint32_t *)(gt.gpio + off);
++	__asm__ volatile("dmb oshld" ::: "memory");
++	return v;
++}
++
++static void
++gt_wr(uint32_t off, uint32_t val)
++{
++	__asm__ volatile("dmb oshst" ::: "memory");
++	*(volatile uint32_t *)(gt.gpio + off) = val;
++	__asm__ volatile("dsb osh" ::: "memory");
++}
++
++static void
++gt_wait(unsigned ms)
++{
++	uint64_t deadline;
++
++	clock_interval_to_deadline(ms, NSEC_PER_MSEC, &deadline);
++	(void)assert_wait_deadline(&gt_sleep_chan, THREAD_UNINT, deadline);
++	thread_block(THREAD_CONTINUE_NULL);
++}
++
++static void
++gt_set_do(uint32_t off, uint32_t mask, bool high)
++{
++	uint32_t v = gt_rd(off);
++
++	if (high) {
++		v |= mask;
++	} else {
++		v &= ~mask;
++	}
++	gt_wr(off, v);
++}
++
++/* ---- I2C5 bit-bang (SCL/SDA are open-drain, external pull-ups) ---- */
++
++static void
++i2c_scl_release(void)
++{
++	gt_wr(GT_I2C_DIR, gt_rd(GT_I2C_DIR) & ~GT_SCL);
++}
++
++static void
++i2c_scl_low(void)
++{
++	gt_set_do(GT_I2C_DO, GT_SCL, false);
++	gt_wr(GT_I2C_DIR, gt_rd(GT_I2C_DIR) | GT_SCL);
++}
++
++static void
++i2c_sda_release(void)
++{
++	gt_wr(GT_I2C_DIR, gt_rd(GT_I2C_DIR) & ~GT_SDA);
++}
++
++static void
++i2c_sda_low(void)
++{
++	gt_set_do(GT_I2C_DO, GT_SDA, false);
++	gt_wr(GT_I2C_DIR, gt_rd(GT_I2C_DIR) | GT_SDA);
++}
++
++static bool
++i2c_sda_read(void)
++{
++	i2c_sda_release();
++	delay(2);
++	return (gt_rd(GT_I2C_DI) & GT_SDA) != 0;
++}
++
++static void
++i2c_start(void)
++{
++	i2c_sda_release();
++	i2c_scl_release();
++	delay(5);
++	i2c_sda_low();
++	delay(5);
++	i2c_scl_low();
++	delay(5);
++}
++
++static void
++i2c_stop(void)
++{
++	i2c_sda_low();
++	delay(5);
++	i2c_scl_release();
++	delay(5);
++	i2c_sda_release();
++	delay(5);
++}
++
++static void
++i2c_write_bit(bool bit)
++{
++	if (bit) {
++		i2c_sda_release();
++	} else {
++		i2c_sda_low();
++	}
++	delay(5);
++	i2c_scl_release();
++	delay(5);
++	i2c_scl_low();
++	delay(5);
++}
++
++static bool
++i2c_read_bit(void)
++{
++	bool bit;
++
++	i2c_sda_release();
++	delay(5);
++	i2c_scl_release();
++	delay(5);
++	bit = i2c_sda_read();
++	i2c_scl_low();
++	delay(5);
++	return bit;
++}
++
++static bool
++i2c_write_byte(uint8_t b)
++{
++	int i;
++	bool ack;
++
++	for (i = 7; i >= 0; i--) {
++		i2c_write_bit((b >> i) & 1);
++	}
++	i2c_sda_release();
++	delay(5);
++	i2c_scl_release();
++	delay(5);
++	ack = !i2c_sda_read();
++	i2c_scl_low();
++	delay(5);
++	return ack;
++}
++
++static uint8_t
++i2c_read_byte(bool ack)
++{
++	uint8_t b = 0;
++	int i;
++
++	for (i = 7; i >= 0; i--) {
++		if (i2c_read_bit()) {
++			b |= 1u << i;
++		}
++	}
++	i2c_sda_release();
++	delay(5);
++	if (ack) {
++		i2c_sda_low();
++	}
++	delay(5);
++	i2c_scl_release();
++	delay(5);
++	i2c_scl_low();
++	delay(5);
++	i2c_sda_release();
++	return b;
++}
++
++/* ---- MT6360 CRC8 SMBus block access ---- */
++
++static uint8_t
++gt_crc8(const uint8_t *p, int n)
++{
++	uint8_t crc = 0;
++	int i, b;
++
++	for (i = 0; i < n; i++) {
++		crc ^= p[i];
++		for (b = 0; b < 8; b++) {
++			crc = (crc & 0x80) ? (uint8_t)((crc << 1) ^ 0x07)
++			    : (uint8_t)(crc << 1);
++		}
++	}
++	return crc;
++}
++
++static bool
++pmic_read(uint8_t reg, uint8_t *val)
++{
++	uint8_t d[2], c[3];
++
++	i2c_start();
++	if (!i2c_write_byte(GT_PMIC_ADDR << 1)) {
++		goto fail;
++	}
++	if (!i2c_write_byte(reg & 0x3f)) {
++		goto fail;
++	}
++	i2c_start();
++	if (!i2c_write_byte((GT_PMIC_ADDR << 1) | 1)) {
++		goto fail;
++	}
++	d[0] = i2c_read_byte(true);
++	d[1] = i2c_read_byte(false);
++	i2c_stop();
++	c[0] = (GT_PMIC_ADDR << 1) | 1;
++	c[1] = reg & 0x3f;
++	c[2] = d[0];
++	if (gt_crc8(c, 3) != d[1]) {
++		return false;
++	}
++	*val = d[0];
++	return true;
++
++fail:
++	i2c_stop();
++	return false;
++}
++
++static bool
++pmic_write(uint8_t reg, uint8_t val)
++{
++	uint8_t c[3];
++
++	c[0] = GT_PMIC_ADDR << 1;
++	c[1] = reg & 0x3f;
++	c[2] = val;
++	i2c_start();
++	if (!i2c_write_byte(GT_PMIC_ADDR << 1)) {
++		goto fail;
++	}
++	if (!i2c_write_byte(reg & 0x3f)) {
++		goto fail;
++	}
++	if (!i2c_write_byte(val)) {
++		goto fail;
++	}
++	if (!i2c_write_byte(gt_crc8(c, 3))) {
++		goto fail;
++	}
++	if (!i2c_write_byte(0)) {
++		goto fail;
++	}
++	i2c_stop();
++	return true;
++
++fail:
++	i2c_stop();
++	return false;
++}
++
++/* ---- SPI3 GPIO bit-bang, Mode 0 ---- */
++
++static void
++spi_pin(uint32_t mask, bool high)
++{
++	gt_set_do(GT_SPI_DO, mask, high);
++	delay(2);
++}
++
++static bool
++spi_mi(void)
++{
++	return (gt_rd(GT_SPI_DI) & GT_MI) != 0;
++}
++
++static void
++spi_xfer(const uint8_t *tx, uint8_t *rx, unsigned len)
++{
++	unsigned i;
++	int b;
++
++	spi_pin(GT_CS, false);
++	for (i = 0; i < len; i++) {
++		uint8_t r = 0;
++
++		for (b = 7; b >= 0; b--) {
++			spi_pin(GT_MO, (tx[i] >> b) & 1);
++			spi_pin(GT_CLK, true);
++			if (rx) {
++				r |= (uint8_t)(spi_mi() << b);
++			}
++			spi_pin(GT_CLK, false);
++		}
++		if (rx) {
++			rx[i] = r;
++		}
++	}
++	spi_pin(GT_CS, true);
++}
++
++static void
++spi_read_req(uint8_t *tx, uint32_t addr)
++{
++	unsigned i;
++
++	for (i = 0; i < 40; i++) {
++		tx[i] = 0;
++	}
++	tx[0] = 0xf1;
++	tx[1] = (addr >> 24) & 0xff;
++	tx[2] = (addr >> 16) & 0xff;
++	tx[3] = (addr >> 8) & 0xff;
++	tx[4] = addr & 0xff;
++	tx[5] = 0xff;
++	tx[6] = 0xff;
++	tx[7] = 0xff;
++}
++
++static void
++gt_clear_sync(void)
++{
++	uint8_t tx[6] = { 0xf0, 0x00, 0x01, 0x03, 0x08, 0x00 };
++
++	spi_xfer(tx, NULL, sizeof(tx));
++}
++
++static bool
++gt_dev_confirm(void)
++{
++	uint8_t tx[16], rx[16];
++	int attempt, i;
++
++	for (attempt = 0; attempt < 3; attempt++) {
++		tx[0] = 0xf0;
++		tx[1] = 0x00;
++		tx[2] = 0x01;
++		tx[3] = 0x00;
++		tx[4] = 0x00;
++		for (i = 0; i < 8; i++) {
++			tx[5 + i] = 0xaa;
++		}
++		spi_xfer(tx, NULL, 13);
++		gt_wait(5);
++
++		spi_read_req(tx, 0x10000);
++		spi_xfer(tx, rx, 16);
++		for (i = 0; i < 8; i++) {
++			if (rx[8 + i] != 0xaa) {
++				break;
++			}
++		}
++		if (i == 8) {
++			return true;
++		}
++		gt_wait(5);
++	}
++	return false;
++}
++
++static bool
++gt_version_ok(void)
++{
++	uint8_t tx[40], rx[40];
++	uint32_t sum = 0;
++	int i;
++
++	spi_read_req(tx, 0x10014);
++	spi_xfer(tx, rx, 36);
++	for (i = 0; i < 26; i++) {
++		sum += rx[8 + i];
++	}
++	if ((sum & 0xffff) != (uint32_t)(rx[34] | (rx[35] << 8))) {
++		return false;
++	}
++	return rx[8] == 'B' && rx[9] == 'E' && rx[10] == 'R' &&
++	    rx[11] == 'L' && rx[12] == 'I' && rx[13] == 'N';
++}
++
++static bool
++gt_hw_init(void)
++{
++	uint8_t en3 = 0, en2 = 0, v3 = 0, v2 = 0;
++	uint32_t v;
++
++	/* I2C5 pins 132/133 to GPIO, both released. */
++	v = gt_rd(GT_I2C_MODE);
++	gt_wr(GT_I2C_MODE, v & ~(0xffu << 16));
++	gt_wr(GT_I2C_DIR, gt_rd(GT_I2C_DIR) & ~(GT_SCL | GT_SDA));
++	gt_wr(GT_I2C_DO, gt_rd(GT_I2C_DO) & ~(GT_SCL | GT_SDA));
++	delay(20);
++	if ((gt_rd(GT_I2C_DI) & (GT_SCL | GT_SDA)) != (GT_SCL | GT_SDA)) {
++		printf("SWEET GT: I2C5 idle low; abort\n");
++		return false;
++	}
++
++	if (!pmic_read(GT_LDO3_EN, &en3) ||
++	    !pmic_read(GT_LDO2_EN, &en2) ||
++	    !pmic_read(GT_LDO3_VOUT, &v3) ||
++	    !pmic_read(GT_LDO2_VOUT, &v2)) {
++		printf("SWEET GT: PMIC read failed; abort\n");
++		return false;
++	}
++	printf("SWEET GT: LDO3 en=%02x vout=%02x, LDO2 en=%02x vout=%02x\n",
++	    en3, v3, en2, v2);
++
++	/* Power-cycle both rails before changing VOUT. */
++	if (!pmic_write(GT_LDO3_EN, en3 & ~0x40) ||
++	    !pmic_write(GT_LDO2_EN, en2 & ~0x40)) {
++		printf("SWEET GT: PMIC disable failed; abort\n");
++		return false;
++	}
++	gt_wait(20);
++
++	if (v3 < 0x3a || v3 > 0x40) {
++		if (!pmic_write(GT_LDO3_VOUT, 0x3a)) {
++			printf("SWEET GT: LDO3 VOUT write failed; abort\n");
++			return false;
++		}
++	}
++	if (v2 < 0xd0 || v2 > 0xd9) {
++		if (!pmic_write(GT_LDO2_VOUT, 0xd0)) {
++			printf("SWEET GT: LDO2 VOUT write failed; abort\n");
++			return false;
++		}
++	}
++	if (!pmic_read(GT_LDO3_VOUT, &v3) || !pmic_read(GT_LDO2_VOUT, &v2) ||
++	    v3 < 0x3a || v3 > 0x40 || v2 < 0xd0 || v2 > 0xd9) {
++		printf("SWEET GT: VOUT readback bad (%02x/%02x); abort\n", v3, v2);
++		return false;
++	}
++
++	/* IOVDD switch GPIO110 high, then VMC 1.8 V and VTP 3.3 V. */
++	gt_wr(GT_IOVDD_DIR, gt_rd(GT_IOVDD_DIR) | GT_IOVDD);
++	gt_wr(GT_IOVDD_DO, gt_rd(GT_IOVDD_DO) | GT_IOVDD);
++	gt_wait(3);
++
++	if (!pmic_read(GT_LDO3_EN, &en3) ||
++	    !pmic_write(GT_LDO3_EN, en3 | 0x40) ||
++	    !pmic_read(GT_LDO3_EN, &en3) || !(en3 & 0x40)) {
++		printf("SWEET GT: LDO3 enable failed; abort\n");
++		return false;
++	}
++	gt_wait(30);
++	if (!pmic_read(GT_LDO2_EN, &en2) ||
++	    !pmic_write(GT_LDO2_EN, en2 | 0x40) ||
++	    !pmic_read(GT_LDO2_EN, &en2) || !(en2 & 0x40)) {
++		printf("SWEET GT: LDO2 enable failed; abort\n");
++		return false;
++	}
++	printf("SWEET GT: rails on en3=%02x en2=%02x\n", en3, en2);
++	gt_wait(15);
++
++	/* reset 15 / IOVDD 110 pinmux back to GPIO */
++	v = gt_rd(GT_MODE(1));
++	gt_wr(GT_MODE(1), v & ~(0xfu << 28));
++	v = gt_rd(GT_MODE(13));
++	gt_wr(GT_MODE(13), v & ~(0xfu << 24));
++
++	/* SPI3 pins 160-163 to GPIO; idle CS high, CLK/MO low. */
++	v = gt_rd(GT_SPI_MODE);
++	gt_wr(GT_SPI_MODE, v & ~0xffffu);
++	v = gt_rd(GT_SPI_DIR);
++	gt_wr(GT_SPI_DIR, (v & ~0x0fu) | (GT_MO | GT_CS | GT_CLK));
++	v = gt_rd(GT_SPI_DO);
++	gt_wr(GT_SPI_DO, (v & ~0x0fu) | GT_CS);
++	delay(20);
++
++	/* Reset GPIO15 low 10 ms, high 100 ms. */
++	gt_wr(GT_RESET_DIR, gt_rd(GT_RESET_DIR) | GT_RESET);
++	gt_wr(GT_RESET_DO, gt_rd(GT_RESET_DO) & ~GT_RESET);
++	gt_wait(10);
++	gt_wr(GT_RESET_DO, gt_rd(GT_RESET_DO) | GT_RESET);
++	gt_wait(100);
++
++	if (!gt_dev_confirm()) {
++		printf("SWEET GT: dev_confirm failed\n");
++		return false;
++	}
++	if (!gt_version_ok()) {
++		printf("SWEET GT: version/checksum failed\n");
++		return false;
++	}
++	printf("SWEET GT: BERLIN/9916R ready, 1080x2400\n");
++	return true;
++}
++
++static bool
++gt_head_ok(const uint8_t *d)
++{
++	uint32_t sum = 0;
++	int i;
++
++	for (i = 0; i < 6; i++) {
++		sum += d[i];
++	}
++	return (sum & 0xffff) == (uint32_t)(d[6] | (d[7] << 8));
++}
++
++static void
++gt_release_all(void)
++{
++	int i;
++
++	for (i = 0; i < GT_MAX; i++) {
++		if (gt.active & (1u << i)) {
++			sweet_hid_touch(i, 0, gt.x[i], gt.y[i]);
++		}
++	}
++	gt.active = 0;
++}
++
++static int
++gt_frame(void)
++{
++	uint8_t tx[40], rx[40];
++	const uint8_t *d = &rx[8];
++	uint32_t nz = 0, n, mask = 0, sum = 0;
++	int i;
++
++	spi_read_req(tx, 0x10308);
++	spi_xfer(tx, rx, 34);
++
++	for (i = 0; i < 8; i++) {
++		nz |= d[i];
++	}
++	if (!nz || !gt_head_ok(d)) {
++		return EAGAIN;
++	}
++
++	if (!(d[0] & 0x80)) {
++		gt_clear_sync();
++		return EAGAIN;
++	}
++	n = d[2] & 0x0f;
++	if (n > 2) {
++		gt_clear_sync();
++		return EIO;
++	}
++
++	if (n) {
++		for (i = 8; i < 8 + (int)n * 8; i++) {
++			sum += d[i];
++		}
++		if ((sum & 0xffff) !=
++		    (uint32_t)(d[8 + n * 8] | (d[8 + n * 8 + 1] << 8))) {
++			gt_clear_sync();
++			return EIO;
++		}
++		for (i = 0; i < (int)n; i++) {
++			const uint8_t *p = d + 8 + i * 8;
++			uint32_t id = p[0] >> 4;
++			uint32_t type = p[0] & 0x0f;
++			uint32_t x, y;
++
++			if (id >= GT_MAX || (mask & (1u << id)) ||
++			    type == 1 || type == 3) {
++				gt_clear_sync();
++				return EIO;
++			}
++			x = ((uint32_t)p[2] | ((uint32_t)p[3] << 8)) / 10;
++			y = ((uint32_t)p[4] | ((uint32_t)p[5] << 8)) / 10;
++			if (x > 1079) {
++				x = 1079;
++			}
++			if (y > 2399) {
++				y = 2399;
++			}
++			mask |= 1u << id;
++			gt.x[id] = (int)x;
++			gt.y[id] = (int)y;
++		}
++	}
++	gt_clear_sync();
++
++	for (i = 0; i < GT_MAX; i++) {
++		if (mask & (1u << i)) {
++			sweet_hid_touch(i, 1, gt.x[i], gt.y[i]);
++		} else if (gt.active & (1u << i)) {
++			sweet_hid_touch(i, 0, gt.x[i], gt.y[i]);
++		}
++	}
++	gt.active = mask;
++	return 0;
++}
++
++static void
++gt_thread(void *arg, wait_result_t wr)
++{
++	int bad = 0;
++
++	(void)arg;
++	(void)wr;
++
++	if (!gt_hw_init()) {
++		goto out;
++	}
++	for (;;) {
++		if (gt_frame() != 0) {
++			if (++bad >= 50) {
++				gt_release_all();
++				bad = 0;
++			}
++		} else {
++			bad = 0;
++		}
++		gt_wait(8);
++	}
++
++out:
++	printf("SWEET GT: stopped\n");
++	(void)thread_terminate(current_thread());
++	thread_block(THREAD_CONTINUE_NULL);
++}
++
++void
++sweet_goodix_spi_init(void)
++{
++	int enabled = 1;
++	thread_t thread;
++	kern_return_t kr;
++
++	if (gt.started) {
++		return;
++	}
++	gt.started = true;
++
++	if (PE_parse_boot_argn("sweetgt", &enabled, sizeof(enabled)) && !enabled) {
++		printf("SWEET GT: disabled (sweetgt=0)\n");
++		return;
++	}
++	gt.gpio = ml_io_map(GT_GPIO_PA, 0x1000);
++	if (!gt.gpio) {
++		printf("SWEET GT: GPIO mapping failed\n");
++		return;
++	}
++	kr = kernel_thread_start(gt_thread, NULL, &thread);
++	if (kr == KERN_SUCCESS) {
++		thread_deallocate(thread);
++	} else {
++		printf("SWEET GT: thread start failed %d\n", kr);
++	}
++}
++
++#endif /* ARM64_BOARD_CONFIG_SWEET */

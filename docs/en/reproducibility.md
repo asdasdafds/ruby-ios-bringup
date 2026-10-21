@@ -35,7 +35,7 @@ documented and theoretical, not an independently reproduced device guarantee.
 | Fixed topaz deletion list | accidental patch leftovers |
 | Fail-closed recipe | missing files or changed 0010/0012 context |
 | LF normalization | Windows/macOS line-ending drift |
-| `PATCHSET_SHA256=de1824c2...` | any patchset content change |
+| `PATCHSET_SHA256=cf4008e3...` | any patchset content change |
 | `ci/baseline-changes.patch` SHA | baseline change drift |
 | `check-bundle.py` | wrong kernel/boot/root/ICL/cmdline |
 | Pinned Actions by SHA | CI supply-chain drift |

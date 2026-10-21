@@ -34,7 +34,7 @@
 | 固定 topaz 删除清单 | 补丁残留 |
 | recipe 失败即停 | 文件缺失或 0010/0012 上下文变化 |
 | LF 归一化 | Windows/macOS 换行漂移 |
-| `PATCHSET_SHA256=de1824c2...` | patchset 内容变化 |
+| `PATCHSET_SHA256=cf4008e3...` | patchset 内容变化 |
 | `ci/baseline-changes.patch` SHA | 基线改动漂移 |
 | `check-bundle.py` | kernel/boot/root/ICL/cmdline 不对 |
 | Actions 按 SHA 固定 | CI 供应链漂移 |

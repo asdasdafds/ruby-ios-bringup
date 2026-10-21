@@ -48,35 +48,34 @@ Boot image fields reported by `tools/image/boot_verify.py`:
 The ICL blocks, boot image and XNU tree are **not** in this repository. The
 hashes above are recorded as evidence; the inputs stay outside the repository.
 
-## Build recipe (0084)
+## Build recipe (0085)
 
 The workflow `.github/workflows/xnu.yml` fetches `MakrSas/ios-topaz` at
 `5095ac1`, runs `ci/prepare-baseline.sh`, and refuses to build unless the
 canonical patchset hash is
-`de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360`
-(87 files). The recipe removes the topaz patches, adds this project's patches,
-applies the small 0010/0012 change, and normalizes line endings.
+`cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f`
+(88 files). The recipe removes the topaz patches, adds this project's patches
+(0080, 0084, 0085, historical 0081-0083), applies the small 0010/0012 change,
+and normalizes line endings.
+
+The same 88-file canonical patchset built the booted 0085 kernel in the
+harness; the patchset hash is the source-identity gate. After the build,
+`ci/kernel_hash.py` hashes the Mach-O segments. Full-file hashes may differ
+between checkouts because of DWARF/path metadata; the workflow gates the
+**exec-data** hash (`__TEXT_EXEC` plus data segments, excluding `__TEXT`
+cstrings and `__LINKEDIT`) against `e4823afb...`.
 
 Locally (Windows):
 
 - the recipe was run against a fresh `topaz@5095ac1` checkout in a temp dir;
-- after the recipe, `patchset_hash.py` reported `de1824c2...` with 87 files;
+- after the recipe, `patchset_hash.py` reported `cf4008e3...` with 88 files;
+  the harness patchset reports the identical hash;
 - `ci/baseline-changes.patch` has SHA256 `1edb6633...`;
-- the workflow YAML parses;
-- `config/0084.env` pins match the workflow and the patchset hash.
+- `config/0085.env` pins match the workflow and the patchset hash.
 
 The full upstream tree and `ci/ruby-baseline.diff` are **not** in the clean
-history. Before the final docs/template-only amendment, the kernel build and
-host checks were green; see Actions. The historical rebuilt kernel SHA256 is
-`3ceb9b3490f8c8ecaa74348c3c5cb02d7302d0ec7f87006fe8354e9d2011a831`;
-the reference original is `b38fca5f...`. The 2026-10-22 run `39648068844`
-(commit `7418bce`) built `8a80855d...`; it was packed with the public scripts
-(payload `2749bf1c...`, image `87dd4910...`) and booted on the author's unit.
-The payload tool came from upstream ref `33852e3`, not the pinned `5095ac1`;
-a strict pinned rebuild is still open.
-
-The reference kernel/image SHAs in `config/0084.env` come from the original
-build.
+history. Previous milestone: the 0084 patchset `de1824c2...` (87 files), kernel
+`b38fca5f...`/`8a80855d...`, image `94c639d1...`.
 
 ## Root state audit (2026-10-22)
 
@@ -111,10 +110,12 @@ paths or device identifiers.
 - **G3 — author's device:** 2026-10-22: B+NOP first boot at 22 s to lock screen
   (from the Apple logo) and 30 s to autoswipe (observed); 3 autoswipe attempts;
   driverkitd only; A' `55e2ab2c...`. CI kernel `8a80855d...` booted to the home
-  screen (driverkitd + PosterBoard; no lsd/SpringBoard/backboardd).
+  screen (driverkitd + PosterBoard; no lsd/SpringBoard/backboardd). The 0085
+  kernel `9eb9acac...` then booted with real Goodix touch; a real bottom-edge
+  swipe unlocked the screen; 206 down/206 up records, two fingers and edge.
 - **Deferred:** second-unit boot, Linux clean-room CI, strict pinned payload
   rebuild (the test used ref `33852e3`), root/shim/ADT builders as clean-room
-  tools, original ICL block regression, real touch/keys/USB, long-run stability.
+  tools, original ICL block regression, keys/USB, long-run stability.
 - Device-baseline hashes are intentionally not published.
 
 The scope, hashes and non-guarantees are in [`GUARANTEE.md`](GUARANTEE.md).
@@ -123,9 +124,10 @@ The scope, hashes and non-guarantees are in [`GUARANTEE.md`](GUARANTEE.md).
 
 Fixed / pre-boot (identity):
 
-- patchset `de1824c2...`; boot args; ICL blocks `ae317804...` / `4a489542...`;
-- named artifacts: reference 0084 `94c639d1...`, CI image `87dd4910...`, CI
-  kernel `8a80855d...`, payload `2749bf1c...`;
+- 0085 patchset `cf4008e3...` (88 files); kernel `9eb9acac...`; exec-data
+  `e4823afb...`; boot image `ace60d16...`; payload `dbc57e96...`;
+- 0084 patchset `de1824c2...`; reference image `94c639d1...`; CI image
+  `87dd4910...`; CI kernel `8a80855d...`; payload `2749bf1c...`;
 - named root snapshots: A `e698339d...`, B `985c30...`, C `34c2882d...`,
   A' `55e2ab2c...`.
 - A' is one first-boot snapshot; a new first boot is a new state. Kernel CI
@@ -159,6 +161,20 @@ Author's unit; one run. Root images are external.
 - Caveat: the payload tool came from upstream ref `33852e3`, not the pinned
   `5095ac1`; the strict pinned rebuild is open.
 
+### Real-touch 0085 (2026-10-22)
+
+- Kernel `9eb9acac...` (exec-data `e4823afb...`), image `ace60d16...`; built
+  from the 88-file patchset `cf4008e3...` (identical canonical hash to the
+  harness build).
+- Boot log: `SWEET GT: LDO3 en=80 vout=b0, LDO2 en=80 vout=40`;
+  `SWEET GT: rails on en3=c4 en2=c4`;
+  `SWEET GT: BERLIN/9916R ready, 1080x2400`.
+- `SWEET HID: touch` 413 records: 206 down / 206 up, 40 two-finger records,
+  84 edge records; down x 0–1038, y 5–2399; no stopped/panic/fail.
+- Real bottom-edge swipe unlocked the lock screen; coordinates were not
+  inverted. The full SWEETLOG is external and not committed; only the
+  sanitized excerpt and aggregate counts are recorded.
+
 ## Device-verified (historical)
 
 These results were observed on the author's device during the bring-up. They
@@ -175,7 +191,7 @@ are not reproduced by CI and are not a guarantee for another unit or firmware.
 
 ## Not verified
 
-- Real touch, buttons, USB, Wi-Fi, GPU and RTC.
+- Hardware buttons, USB, Wi-Fi, GPU and RTC.
 - Regression of the original (unpatched) ICL block after the first-boot state
   was created.
 - A from-scratch reproduction on a different `ruby` unit, a second-unit boot,

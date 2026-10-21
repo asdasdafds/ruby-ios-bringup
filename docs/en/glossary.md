@@ -40,7 +40,8 @@
 | `HID` | human interface device | `IOHIDEventService` path |
 | `SweetHID` | kernel HID service | `SweetHIDTouch` / `SweetHIDButtons` |
 | `edge tip` | `kIOHIDDigitizerEventFromEdgeTip` | required for the home gesture |
-| `GVO` / `TM` | Goodix firmware variants | must be confirmed on Android |
+| `GVO` / `TM` | Goodix firmware variants | **TM** confirmed for this unit; GVO unused |
+| `SWEET GT` | XNU Goodix driver log tag | `bsd/dev/sweet_goodix_spi.c` |
 | `kpd` | keypad driver | `mtk-kpd @ 0x10010000` |
 
 ## Userland

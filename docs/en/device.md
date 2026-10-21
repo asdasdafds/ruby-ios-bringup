@@ -21,8 +21,10 @@ they can fingerprint the unit. The success-contract artifact hashes are in
 ## What must match
 
 - firmware and GPT layout (the device must be the same `ruby` class);
-- the root image hash and the 0084 boot image hash;
-- the boot cmdline in `config/0084-boot.cmdline`;
+- the root image hash and the 0085 real-touch boot image hash (`0084` is the
+  previous milestone);
+- the boot cmdline in `config/0085-boot.cmdline` (or `0084-boot.cmdline` for
+  the synthetic-swipe image);
 - the panel/display path (1080×2400, LK scan buffer `0x7cdfc000`).
 
 ## What does not need to match
@@ -31,7 +33,9 @@ Touch firmware, Wi-Fi, USB, GPU and RTC are not part of the success path.
 
 ## Testing status
 
-No device regression tests were run for this packaging. The home-screen result
-is historical (boot23); CI builds the kernel only. See
+A real-touch 0085 boot (real bottom-edge unlock, two fingers, edge) and the
+0084 home-screen/CI-kernel boots were observed on the author's unit on
+2026-10-22; no second unit or clean-room has been tested. CI builds the kernel
+only. See
 [`../../GUARANTEE.md`](../../GUARANTEE.md) for the exact guarantee and the
 deferred tests.

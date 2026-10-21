@@ -13,7 +13,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 BASE_REPO=${BASE_REPO:-https://github.com/MakrSas/ios-topaz.git}
 BASE_SHA=${BASE_SHA:-5095ac19dbdcf37b64b81fe443f4027ad51b84bf}
-PATCHSET_SHA256=${PATCHSET_SHA256:-de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360}
+PATCHSET_SHA256=${PATCHSET_SHA256:-cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f}
 PYTHON=${PYTHON:-python3}
 DEST=${1:-baseline}
 
@@ -46,6 +46,7 @@ while IFS= read -r name; do
 done < "$ROOT/ci/topaz-patches-to-remove.txt"
 
 cp "$ROOT/patches/0080-ruby-ufs.patch" "$ROOT/patches/0084-ruby-autoswipe.patch" \
+    "$ROOT/patches/0085-ruby-goodix-spi.patch" \
     "$DEST/xnu/patches/"
 cp "$ROOT/patches/historical/0081-ruby-swap-debug.patch" \
     "$ROOT/patches/historical/0082-ruby-wifi-stub.patch" \

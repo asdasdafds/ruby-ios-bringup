@@ -33,7 +33,7 @@ AVB footer 在 stock 偏移，避免 `hdr_loaded` 拒绝。
 | Root | `iosroot` 上的 HFS+ | pulled v14 + seed；不在仓库 |
 | 用户态 | iOS 16.7.16 | ICL 4 字节 NOP |
 | 显示 | IOSurface/IOMFB | 0081 调试路径 |
-| 输入 | SweetHID | 0084 合成上滑；真实触摸未移植 |
+| 输入 | SweetHID | 真实 Goodix 触摸（0085）；保留 0084 合成上滑 |
 
 ## 三堵墙
 

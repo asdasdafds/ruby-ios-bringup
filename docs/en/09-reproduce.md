@@ -28,13 +28,14 @@ build unless the canonical patchset hash matches.
 ```text
 base:     MakrSas/ios-topaz @ 5095ac19dbdcf37b64b81fe443f4027ad51b84bf
 recipe:   ci/prepare-baseline.sh (no upstream tree vendored)
-patchset: de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
+patchset: cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f
+exec-data: e4823afb97360e24708184d09c0dc6c9f7280e33d5c4aefbeb901b3fa9b11e3e
 dxb:      blacktop/darwin-xnu-build @ 663906528d1cd5ea8fde7de6f16de73db9511549
 runner:   macos-14, Xcode 15.0.1, macOS 13.5 xnu
 config:   DEVELOPMENT, MACHINE_CONFIG=SWEET, -mcpu=cortex-a55
 ```
 
-Run it from **Actions → xnu-0084 → Run workflow**, or push a change under
+Run it from **Actions → xnu-0085 → Run workflow**, or push a change under
 `ci/`, `patches/`, `config/` or the workflow. Artifacts: `xnu-kernel` and
 `xnu-buildtree`.
 
@@ -124,7 +125,8 @@ fastboot reboot
   advances; camera icon and home bar.
 - Synthetic swipe unlocks to the home screen; animations run.
 - Black wallpaper, `Waiting...` widgets and a Messages badge may remain.
-- Touch, keys, USB, Wi-Fi, GPU and RTC are not implemented.
+- Real touch works with the 0085 kernel (bottom-edge unlock, two fingers,
+  edge). Keys, USB, Wi-Fi, GPU and RTC are not implemented.
 - Pre-boot image hashes are fixed; post-boot live-root/ring/log hashes and
   timing are volatile (see the "Hash stability" section of `GUARANTEE.md`).
 

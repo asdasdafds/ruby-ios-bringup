@@ -5,10 +5,11 @@
 **在 MediaTek MT6877 手机上运行 XNU 8796 + iPhone X iOS 16.7.16 用户态。**
 一个研究性 bring-up，以独立、脱敏的增量形式打包。
 
-> **状态 2026-10-22：** 参考 0084 镜像和 CI 构建内核都已在作者设备上到达锁屏，
-> 合成上滑进桌面。**计时从出现 Apple logo 开始：** B+NOP 首启观察到 22 秒到
-> 锁屏、30 秒 autoswipe；历史首启约 58 秒，热重启约 22 秒。真实触摸、按键、
-> USB、Wi-Fi、GPU、RTC 仍未通。
+> **状态 2026-10-22：真实触摸已通。** 0085 内核通过 GPIO bit-bang SPI3
+> 驱动 Goodix GT9916R，能用真实底边上滑解锁，双指和 edge 手势都正常；
+> 0084 镜像和 CI 内核也都能到达锁屏并合成上滑进桌面。**计时从出现 Apple
+> logo 开始：** B+NOP 首启观察到 22 秒到锁屏、30 秒 autoswipe；历史首启
+> 约 58 秒，热重启约 22 秒。按键、USB、Wi-Fi、GPU、RTC 仍未通。
 >
 > **设备回归：** B+NOP 首启 -> A' 和 CI kernel 启动已在 2026-10-22 于作者设备
 > 上跑过。第二台/干净室，以及从 IPSW 造 root/shim/ADT 的 builder 仍未完成。
@@ -33,11 +34,11 @@
 | CPU | 6× Cortex-A55，16K 页，GICv3，定时器 |
 | 显示 | IOSurface/IOMFB → LK framebuffer，1080×2400 |
 | 用户态 | launchd → lsd → backboardd → SpringBoard |
-| 输入 | 仅合成 HID 上滑；真实 Goodix 未移植 |
+| 输入 | **真实 Goodix GT9916R**，bit-bang SPI3；解锁、双指、edge；0084 合成上滑仍保留 |
 | 存储 | UFS LUN 2，`iosroot` 上读写 HFS+ |
-| 最新 run | B+NOP 首启 -> A'（从 Apple logo 起 22 秒 / 30 秒）；CI kernel 启动 |
+| 最新 run | 真实触摸 0085 启动；0084 B+NOP 首启 -> A'（从 Apple logo 起 22 秒 / 30 秒）；CI kernel 启动 |
 | 未闭环 | 第二台/干净室；从 IPSW 造 root/shim/ADT；严格 pin 的 payload |
-| 未通 | 触摸/按键、USB、Wi-Fi、GPU、RTC |
+| 未通 | 按键、USB、Wi-Fi、GPU、RTC |
 | 安全 | AMFI/sandbox/签名关闭；可能丢数据 |
 
 ## 这个里程碑的意义
@@ -54,10 +55,11 @@
 | `README.md`、`STATUS.md`、`SCOPE.md`、`SAFETY.md` | 入口与边界 |
 | `ACKNOWLEDGEMENTS.zh.md`、`LEGAL.zh.md` | 致谢与法律风险声明 |
 | `docs/en/`、`docs/zh/` | 英文与中文章节 |
-| `patches/` | 自有 XNU 增量：0080 UFS、0084 autoswipe；历史 0081-0083 |
-| `ci/` | 基线 recipe、固定 patchset 哈希与来源 |
-| `config/` | 0084 构建 pin 与启动 cmdline |
-| `.github/workflows/xnu.yml` | 复现可启动的 0084 内核 |
+| `touch/` | probe 阶梯、硬件契约与脱敏实验记录 |
+| `patches/` | 自有 XNU 增量：0080 UFS、0085 Goodix 触摸；历史 0081-0084 |
+| `ci/` | 基线 recipe、固定 patchset 哈希、内核分段哈希与来源 |
+| `config/` | 0085 真实触摸 pin 与启动 cmdline；0084 为上一里程碑 |
+| `.github/workflows/xnu.yml` | 复现可启动的 0085 内核并校验 exec-data 哈希 |
 | `src/bringup/` | 早期启动 payload、shim、镜像打包 |
 | `src/ufs-probe/` | MT6877 UFS 只读探针 |
 | `tools/image/` | ICL 补丁、dyld 扫描、boot 校验 |
@@ -120,12 +122,12 @@ boot、kernel、ADT、shim 和 0084 golden；生成 payload、确定性 boot 镜
 | 设备 | Redmi Note 12 Pro 5G，`ruby` / MT6877，8 GB + 256 GB |
 | 系统 | Android 12 / MIUI 13.0.4，已解锁，Magisk，slot `_a` |
 | 布局 | `userdata` 208.4 GiB + `iosroot` 17 GiB；`boot_a` 128 MiB；`super` 约 9.1 GB |
-| 当前状态 | `boot_a` 为参考 0084 镜像；`iosroot` 是 A''（A' + CI kernel 运行写入）；Android 未恢复；ICL NOP |
-| 成功工件 | 0084 镜像、内核、root A/A' 快照、ICL 块、boot cmdline |
+| 当前状态 | 工件：真实触摸 0085 镜像/内核、0084 镜像、root A/A' 快照、ICL 块、boot cmdline；设备不在本仓库内 |
+| 成功工件 | 0085 镜像、内核、root A/A' 快照、ICL 块、boot cmdline |
 | 需匹配 | 固件/GPT、root hash、boot 镜像、启动参数、面板/显示 |
 | 不需要 | 触摸固件、Wi-Fi、USB、GPU、RTC |
 
-root 状态（外部；pin 在 `config/0084.env`）：
+root 状态（外部；pin 在 `config/0085.env`）：
 
 | 状态 | SHA-256 | 含义 |
 |---|---|---|
@@ -135,7 +137,7 @@ root 状态（外部；pin 在 `config/0084.env`）：
 | A' 首启快照 | `55e2ab2c...` | 一次 B+NOP 首启快照；新的首启会不同 |
 
 设备基线哈希（GPT/boot/vbmeta）**不发布**，因为可能成为设备指纹；工件
-hash 在 `config/0084.env`。见 [`docs/zh/device.md`](docs/zh/device.md)。
+hash 在 `config/0085.env`。见 [`docs/zh/device.md`](docs/zh/device.md)。
 
 ## 边界与安全
 
