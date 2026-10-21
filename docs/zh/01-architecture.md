@@ -29,7 +29,7 @@ AVB footer 在 stock 偏移，避免 `hdr_loaded` 拒绝。
 |---|---|---|
 | Bootloader | 小米 LK | 无；只写 `boot_a` |
 | Payload | shim/loader | 早期 `src/bringup`；0084 用上游 loader |
-| 内核 | XNU 8796 | 补丁 0080/0084；0081–0083 历史 |
+| 内核 | XNU 8796 | 补丁 0080/0085（真实触摸）；0084 上一里程碑；0081–0083 历史 |
 | Root | `iosroot` 上的 HFS+ | pulled v14 + seed；不在仓库 |
 | 用户态 | iOS 16.7.16 | ICL 4 字节 NOP |
 | 显示 | IOSurface/IOMFB | 0081 调试路径 |

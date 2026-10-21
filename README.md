@@ -122,9 +122,10 @@ canonical patchset hash matches. The boot image itself is **not** included;
 `tools/image/` provides the offline verifier and patch tools.
 
 Host pipeline (no device, no root): `scripts/test-pipeline.sh` with a base boot
-image, kernel, ADT, shim and the golden 0084 image. It builds the payload,
-packs a deterministic image and checks the layout; see
-`docs/en/09-reproduce.md`.
+image, kernel, ADT, shim and the golden 0084 image (the 0084 milestone harness;
+the 0085 path uses the three commands in `docs/en/09-reproduce.md` with
+`config/0085.env`). It builds the payload, packs a deterministic image and
+checks the layout.
 
 ## Device situation
 

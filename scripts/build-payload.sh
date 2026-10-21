@@ -7,7 +7,7 @@
 #
 #   sh scripts/build-payload.sh \
 #     --kernel <kernel.development.sweet> --adt <adt> \
-#     --cmdline-file config/0084-boot.cmdline --out <payload.bin> \
+#     --cmdline-file config/0085-boot.cmdline --out <payload.bin> \
 #     [--base-dir <prepared-topaz>] [--expect-sha <sha256>]
 set -eu
 

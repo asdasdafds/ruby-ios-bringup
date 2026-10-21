@@ -61,8 +61,8 @@ stock 偏移。
 3. 剩余空间填充，使 gzip 流达到 stock 大小；FEXTRA 精确补到 16,606,685。
 4. 保持 DTB/ramdisk/footer 位置。
 
-早期打包器在 `src/bringup/`；0084 镜像用了上游 loader + ADT 构建器，仓库
-没有 vendor 这部分。
+早期打包器在 `src/bringup/`；0085/0084 镜像用了上游 loader + ADT 构建器，
+仓库没有 vendor 这部分。
 
 ## FEXTRA 细节
 

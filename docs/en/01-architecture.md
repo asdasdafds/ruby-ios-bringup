@@ -30,7 +30,7 @@ avoiding an `hdr_loaded` rejection.
 |---|---|---|
 | Bootloader | Xiaomi LK | none; only `boot_a` is written |
 | Payload | shim/loader | early `src/bringup`; upstream loader for 0084 |
-| Kernel | XNU 8796 | patches 0080/0084; 0081–0083 historical |
+| Kernel | XNU 8796 | patches 0080/0085 (real touch); 0084 previous; 0081–0083 historical |
 | Root | HFS+ in `iosroot` | pulled v14 + seed; not in the repo |
 | Userland | iOS 16.7.16 | ICL 4-byte NOP |
 | Display | IOSurface/IOMFB | 0081 debug path |

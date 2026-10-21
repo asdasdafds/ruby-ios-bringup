@@ -12,7 +12,7 @@ because a simpler path silently failed.
 |---|---|---|---|
 | `tools/image/icl_nop.py` | 4-byte patch in a raw block/image | offline write, dry-run default | real block round-trip |
 | `tools/image/dyld_scan.py` | locate a VA in the split dyld cache | read-only | used in the MG work |
-| `tools/image/boot_verify.py` | inspect a packed boot image | read-only | 0084 image |
+| `tools/image/boot_verify.py` | inspect a packed boot image | read-only | 0084/0085 images |
 | `tools/twrp/blkdiff.c` | compare an image with a 4K CRC map | read-only on image | multiple boot cycles |
 | `tools/twrp/blkpatch.c` | write diff blocks by index | **raw device write** | multiple boot cycles |
 | `tools/twrp/twrp-guard.sh` | refuse to run outside TWRP | gate | host refuses |
@@ -27,13 +27,14 @@ because a simpler path silently failed.
 | `scripts/check-bundle.py` | verify artifact hashes before flash | read-only | config-driven |
 | `.github/workflows/xnu.yml` | reproduce the 0084 kernel | CI build | recipe + patchset hash |
 | `ci/prepare-baseline.sh` | fetch, remove/add patches, verify hash | network + temp write | tested locally |
-| `ci/patchset_hash.py` | canonical 87-file patchset hash | read-only | matches recipe |
+| `ci/patchset_hash.py` | canonical patchset hash (0085: 88 files) | read-only | matches recipe |
 | `ci/baseline-changes.patch` | small 0010/0012 change | data | hash pinned |
 | `scripts/build-payload.sh` | payload from kernel+ADT+cmdline | network + offline write | tested |
 | `tools/image/pack_boot.py` | deterministic 128 MiB boot image | offline write | tested |
 | `tools/image/boot_layout.py` | compare rebuilt vs golden layout | read-only | tested |
-| `scripts/test-pipeline.sh` | payload → pack → layout | temp writes | passes |
-| `config/0084.env`, `0084-boot.cmdline` | provenance | data | run/pin checked |
+| `scripts/test-pipeline.sh` | payload → pack → layout (0084 milestone) | temp writes | passes for 0084; 0085 uses the commands in `09-reproduce` |
+| `config/0085.env`, `0085-boot.cmdline` | provenance (real touch) | data | run/pin checked |
+| `config/0084.env`, `0084-boot.cmdline` | previous milestone (synthetic swipe) | data | historical |
 
 ## `tools/image/icl_nop.py`
 
@@ -132,17 +133,18 @@ python src/ufs-probe/build_ufs_full.py --base <stock.img> \
 **Why:** Upstream has no license file, so the tree is not vendored and no full
 delta is published. The recipe fetches the pinned commit, removes the topaz
 patches, adds this project's patches, applies the small 0010/0012 change,
-normalizes LF, and verifies the canonical 87-file patchset hash before building.
+normalizes LF, and verifies the canonical 88-file patchset hash (0085) before building.
 
 - **Does not:** flash, pack an image, follow a moving branch tip, or publish
   the full upstream delta.
 - **Failure modes:** missing topaz patch → stop; 0010/0012 context mismatch →
   `git apply` fails; patchset mismatch → stop before the build.
-- **Pins:** see `config/0084.env` and `ci/README.md`.
+- **Pins:** see `config/0085.env` and `ci/README.md`.
 
 ## `scripts/build-payload.sh`
 
-**Why:** The 0084 payload is deterministic, but the payload tool lives upstream
+**Why:** The 0084 payload is deterministic; the 0085 image used a random filler,
+so verify its layout. The payload tool lives upstream
 and the ADT is external. The wrapper fetches the pinned upstream tools, runs
 `mkpayload.py` with the user's kernel/ADT/cmdline, and checks the payload SHA.
 The shim and ADT are not in the repo.
@@ -176,7 +178,7 @@ and the tail.
 - **Does not:** flash, modify, or require the root image.
 - **Verified:** rebuilt vs golden 0084: all checks PASS; only the image bytes
   differ.
-- **No golden:** pass `--config config/0084.env`; the pinned header/ADT/
+- **No golden:** pass `--config config/0085.env`; the pinned header/ADT/
   cmdline/shim/payload values are compared instead.
 
 ## `scripts/test-pipeline.sh`

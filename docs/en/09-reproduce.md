@@ -6,8 +6,8 @@
 > [`../../GUARANTEE.md`](../../GUARANTEE.md).
 
 The kernel build is reproducible. The boot image and the iOS root are not fully
-self-contained here: Apple's userland is not distributable, and the 0084 image
-used the upstream shim/loader/ADT builder, which is not vendored. This chapter
+self-contained here: Apple's userland is not distributable, and the 0085/0084
+images used the upstream shim/loader/ADT builder, which is not vendored. This chapter
 states what you can reproduce from this repo and what you must supply.
 
 ## What you must supply
@@ -47,28 +47,34 @@ baseline commit.
 
 ```sh
 sh scripts/build-payload.sh --kernel <kernel> --adt <adt> \
-  --cmdline-file config/0084-boot.cmdline --out <payload.bin>
+  --cmdline-file config/0085-boot.cmdline --out <payload.bin>
 
 python tools/image/pack_boot.py --base <magisk.img> --shim <Image> \
   --payload <payload.bin> --out <boot.img>
 
 python tools/image/boot_layout.py --image <boot.img> \
-  --config config/0084.env --payload <payload.bin> --base <magisk.img>
+  --config config/0085.env --payload <payload.bin> --base <magisk.img>
 ```
 
-`--golden <0084.img>` is optional; the config pins are enough for an external
+`--golden <boot.img>` is optional; the config pins are enough for an external
 user without the golden image. The root is prepared separately per
 [`root-recipe.md`](root-recipe.md).
 
-Or run all three with `scripts/test-pipeline.sh`.
+The three commands above are the 0085 path. `scripts/test-pipeline.sh` is the
+0084 milestone harness and is pinned to `config/0084.env`; it does not test
+0085 unless its defaults are updated.
 
-The 0084 inputs produce payload
-`50701e819368239252527cc61e9bb67d4d7387798272d781f0a72470751de178`.
-The deterministic packer (seed `0x84`) produces
-`a0ce0fe131c2a9b63da340824ad5c94db327c966c55b2dd5d7f518a15e5a0132`; it is
-layout-equivalent to the original 0084 image, not byte-identical. The original
-image used `os.urandom` filler; use `boot_layout.py`, not the image SHA, for a
-rebuild.
+The 0085 real-touch inputs produce payload
+`dbc57e96396f2e3e23213a76d300b1a329e2b4a320bc7363cf99ce0fc9e52b1c`.
+The booted image is `ace60d1645ec271cdbd55b7007456cb578168ca708382aafae8fbf506e68f6c8`;
+the CI-rebuilt kernel was packed to
+`54d1b3066a3782cab36135dbe8d666cf53bbd6837b8394105d7e61de9b32b10d` (not
+flashed). These images used a random filler, so verify layout, not the image
+SHA, for a rebuild.
+
+Previous milestone: the 0084 inputs produce payload
+`50701e81...`; the seed `0x84` rebuild is `a0ce0fe1...` and is
+layout-equivalent to `94c639d1...`, not byte-identical.
 
 2026-10-22: the B+NOP first boot -> A' and the CI kernel boot were run on the
 author's unit. The CI kernel used payload ref `33852e3`, not the pinned
@@ -105,14 +111,18 @@ fastboot reboot
 
 ## Boot args
 
-`config/0084-boot.cmdline` is the exact boot23 cmdline. Key arguments:
+`config/0085-boot.cmdline` is the real-touch cmdline. Key arguments:
 
 | Argument | Effect |
 |---|---|
 | `cpus=6` | six A55 cores |
 | `ufsroot=iosroot`, `ufslun=2`, `ufsrw=1`, `rootrw=1` | root device |
 | `sweetfb_noconsole=1`, `sweetfb_hz=30` | display/debug |
-| `sweetautoswipe=90000`, `sweetautoswiperetry=15000`, `sweetautoswipeattempts=3` | autoswipe |
+| `sweetgt=1` | enable the Goodix driver; `0` disables it |
+
+The 0084 synthetic-swipe milestone uses `config/0084-boot.cmdline` with
+`sweetautoswipe=90000`, `sweetautoswiperetry=15000` and
+`sweetautoswipeattempts=3`; `0085` omits those so only real touch drives the UI.
 
 ## Expected behavior
 
@@ -123,7 +133,8 @@ fastboot reboot
   4–5 min.
 - Lock screen: date starts at `Wednesday, December 31` (no RTC/NTP); clock
   advances; camera icon and home bar.
-- Synthetic swipe unlocks to the home screen; animations run.
+- A real bottom-edge swipe unlocks to the home screen with the 0085 kernel;
+  two fingers and edge gestures work. The 0084 synthetic swipe also unlocks.
 - Black wallpaper, `Waiting...` widgets and a Messages badge may remain.
 - Real touch works with the 0085 kernel (bottom-edge unlock, two fingers,
   edge). Keys, USB, Wi-Fi, GPU and RTC are not implemented.

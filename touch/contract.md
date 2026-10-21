@@ -154,7 +154,7 @@ LDO2 `0x15`），所以触控实际拿到 IOVDD 3.0 V、AVDD 1.8 V，
 AVDD 欠压，芯片不会启动。P1g 读到的 `old=0x80`（enable=0）
 说明 PMIC 在进入 probe 前已复位到默认，warm reboot 同样无效。
 
-**P1h（已构建、未刷）：** `touch-p1h.img`，SHA-256
+**P1h（已刷入并运行，随后 panic）：** `touch-p1h.img`，SHA-256
 `b4663587882cb225619985bcf2257fd780b24daad1c519ea1af5762fffc93a9b`。
 读 LDO3/LDO2 EN+VOUT（CRC8）→ 断电 20 ms → VMC `0x09=0x3a`
 （1.8 V）、vtp `0x15=0xd0`（3.3 V）→ 回读 → IOVDD 高 →

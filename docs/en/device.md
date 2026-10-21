@@ -5,7 +5,7 @@
 This is a description, not a device-baseline hash manifest. Hashes of the GPT,
 `boot_a/b`, `vbmeta` or partition GUIDs are intentionally **not** published:
 they can fingerprint the unit. The success-contract artifact hashes are in
-`config/0084.env`.
+`config/0085.env` (`config/0084.env` is the previous synthetic-swipe milestone).
 
 ## The unit
 
@@ -16,7 +16,7 @@ they can fingerprint the unit. The success-contract artifact hashes are in
 | System | Android 12 / MIUI 13.0.4, unlocked bootloader, Magisk, slot `_a` |
 | Partition layout | `userdata` 208.4 GiB + `iosroot` 17 GiB; `boot_a` 128 MiB; `super` ~9.1 GB |
 | Current state | `boot_a` holds the 0084 XNU image; Android not restored; `iosroot` holds the ICL NOP |
-| Success artifacts | 0084 boot image, kernel, root image, ICL blocks, boot cmdline |
+| Success artifacts | 0085 real-touch boot image/kernel, 0084 boot image, root image, ICL blocks, boot cmdline |
 
 ## What must match
 

@@ -69,6 +69,10 @@ reads. The driver writes:
 - LDO3 `0x09 = 0x3a` (selector `0x3a..0x40` = 1.8 V);
 - LDO2 `0x15 = 0xd0` (selector `0xd0..0xd9` = 3.3 V).
 
+P1f/P1g enabled the rails before VOUT was written, so the chip briefly saw
+VMC at 3.0 V before the fix; it survived. Do not repeat that deliberately:
+write VOUT while the rails are disabled, read it back, then enable.
+
 ### 3.3 Power-up order
 
 ```
@@ -107,8 +111,11 @@ Bits: MO=0, MI=1, CS=2, CLK=3; SCL=4, SDA=5; reset=15; IOVDD=14.
 Pitfalls:
 
 - **`0x400/0x440` are group 16/20**, not bank 4/5;
-- MTK clock gates are active-low (CLR `0x100010a8` opens, SET `0x100010a4`
-  closes); the bit-bang driver does not depend on the SPI3 controller clock;
+- MTK clock gates are active-low: CLR `0x100010a8` bit10 opens, SET
+  `0x100010a4` bit10 closes, and STA `0x100010ac` bit10=1 means gated. The
+  bit-bang driver does not depend on the SPI3 controller clock;
+- CPOL/CPHA live in `SPI_CMD` bits 8/9; `CFG0=0x3F003F` is CS setup/hold
+  timing, not mode 3;
 - I2C/SPI lines are open-drain with external pull-ups; release by setting DIR
   to input.
 

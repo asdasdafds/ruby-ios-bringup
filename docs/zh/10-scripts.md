@@ -11,7 +11,7 @@
 |---|---|---|---|
 | `tools/image/icl_nop.py` | 在 raw 块/镜像上改 4 字节 | 离线写，默认 dry-run | 真实块往返 |
 | `tools/image/dyld_scan.py` | 在 split dyld cache 里定位 VA | 只读 | MG 工作中使用 |
-| `tools/image/boot_verify.py` | 检查打包 boot 镜像 | 只读 | 0084 镜像 |
+| `tools/image/boot_verify.py` | 检查打包 boot 镜像 | 只读 | 0084/0085 镜像 |
 | `tools/twrp/blkdiff.c` | 与 4K CRC 图对比 | 对镜像是只读 | 多轮启动 |
 | `tools/twrp/blkpatch.c` | 按索引写 diff 块 | **raw 设备写** | 多轮启动 |
 | `tools/twrp/twrp-guard.sh` | 非 TWRP 拒绝运行 | 门禁 | 主机拒绝 |
@@ -26,13 +26,14 @@
 | `scripts/check-bundle.py` | 刷前核对工件 hash | 只读 | 由 config 驱动 |
 | `.github/workflows/xnu.yml` | 复现 0084 内核 | CI 构建 | recipe + patchset 哈希 |
 | `ci/prepare-baseline.sh` | 拉基线、删/加补丁、校验哈希 | 网络 + 临时写 | 本地已测 |
-| `ci/patchset_hash.py` | 87 文件 patchset 规范哈希 | 只读 | 与 recipe 一致 |
+| `ci/patchset_hash.py` | patchset 规范哈希（0085：88 文件） | 只读 | 与 recipe 一致 |
 | `ci/baseline-changes.patch` | 0010/0012 小改动 | 数据 | 哈希固定 |
 | `scripts/build-payload.sh` | 从 kernel+ADT+cmdline 生成 payload | 网络 + 离线写 | 已测 |
 | `tools/image/pack_boot.py` | 确定性 128 MiB boot 镜像 | 离线写 | 已测 |
 | `tools/image/boot_layout.py` | 重建镜像 vs golden 布局对比 | 只读 | 已测 |
-| `scripts/test-pipeline.sh` | payload → pack → layout | 临时写 | 通过 |
-| `config/0084.env`、`0084-boot.cmdline` | 来源记录 | 数据 | run/pin 检查 |
+| `scripts/test-pipeline.sh` | payload → pack → layout（0084 里程碑） | 临时写 | 0084 通过；0085 用 `09-reproduce` 的三条命令 |
+| `config/0085.env`、`0085-boot.cmdline` | 来源记录（真实触摸） | 数据 | run/pin 检查 |
+| `config/0084.env`、`0084-boot.cmdline` | 上一里程碑（合成上滑） | 数据 | 历史 |
 
 ## `tools/image/icl_nop.py`
 
@@ -126,16 +127,17 @@ python src/ufs-probe/build_ufs_full.py --base <stock.img> \
 
 **初衷：** 上游没有 LICENSE，不能 vendor，也不公开完整 delta。recipe 拉固定
 commit、删 topaz 补丁、加本项目补丁、应用 0010/0012 小改动、统一 LF，并在
-构建前校验 87 文件 patchset 哈希。
+构建前校验 88 文件 patchset 哈希（0085）。
 
 - **不做：** 不刷机、不打包镜像、不跟随移动分支、不公开完整上游 delta。
 - **失败模式：** topaz 补丁缺失 → 停止；0010/0012 上下文不匹配 → `git apply`
   失败；patchset 不匹配 → 编译前停止。
-- **pin：** 见 `config/0084.env` 和 `ci/README.md`。
+- **pin：** 见 `config/0085.env` 和 `ci/README.md`。
 
 ## `scripts/build-payload.sh`
 
-**初衷：** 0084 payload 是确定性的，但 payload 工具在上游，ADT 是外部输入。
+**初衷：** 0084 payload 是确定性的；0085 镜像使用随机 filler，按布局校验。
+payload 工具在上游，ADT 是外部输入。
 wrapper 按固定 commit 拉上游工具，用用户的 kernel/ADT/cmdline 跑
 `mkpayload.py`，并校验 payload SHA。shim/ADT 不入库。
 
@@ -165,7 +167,7 @@ tail。
 - **风险：** 只读。
 - **不做：** 不刷机、不修改、不需要 root。
 - **已验证：** 重建 vs 0084 golden 全部 PASS；只有镜像字节不同。
-- **无 golden：** 传 `--config config/0084.env`，改用 pin 的 header/ADT/
+- **无 golden：** 传 `--config config/0085.env`，改用 pin 的 header/ADT/
   cmdline/shim/payload 值校验。
 
 ## `scripts/test-pipeline.sh`

@@ -11,14 +11,14 @@ after each verification pass.
   scans were read-only; `boot_a` was written for TWRP/reference/CI images; the
   root was restored to A/B+NOP only after a live-backup scan.
 
-## Host-verified (2026-10-21)
+## Host-verified (2026-10-21, updated 2026-10-22)
 
 `python scripts/verify-local.py` with the optional external inputs:
 
 | Check | Result |
 |---|---|
-| Python syntax | 14 files, pass |
-| Shell syntax | 6 files, pass |
+| Python syntax | 18 files, pass |
+| Shell syntax | 7 files, pass |
 | Forbidden binary/media files | none outside the allowlist |
 | Sanitized media | 2 allowlisted files; SHA-256 in `media/README.md` |
 | Personal paths / secrets | none |

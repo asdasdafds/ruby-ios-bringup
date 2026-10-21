@@ -14,7 +14,7 @@ status. No phone is attached to this repository or to its CI.
 | Display | IOSurface/IOMFB to LK framebuffer; 1080x2400 | surface markers and live UI |
 | HID path | `SweetHIDTouch -> IOHIDEventService -> backboardd -> SpringBoard` | synthetic autoswipe + real touch reach SpringBoard |
 | Real touch | Goodix GT9916R/BerlinD over bit-bang SPI3; bottom-edge unlock, two fingers, edge events | 0085 boot 2026-10-22; `SWEET GT` init log and 206 down/206 up touch records; see `docs/en/touch-goodix-9916r.md` |
-| Patch checks | 0084/0083/0081 apply to the pre-0084 build tree; 0080/0082 are already applied | host-side `git apply --check`, 2026-10-21 |
+| Patch checks | 0084/0083/0081 apply to the pre-0084 build tree; 0080/0082 are already applied; 0085 applies after 0084 and built successfully | host-side `git apply --check`; CI run `39694456200` |
 | ICL tool | original block -> patched block reproduces `4a489542...` | host-side round-trip, 2026-10-21 |
 | Host pipeline | payload `50701e81...`; deterministic rebuild `a0ce0fe1...`; layout PASS vs 0084 | host-only, 2026-10-21; no root/phone |
 | Host checks | strict host bundle PASS; config-mode layout PASS (11 checks); Linux host CI green before the final docs/template-only amendment | host-only, 2026-10-21 |

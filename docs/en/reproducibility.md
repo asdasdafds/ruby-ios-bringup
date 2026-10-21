@@ -12,12 +12,13 @@ documented and theoretical, not an independently reproduced device guarantee.
 - `patches/` — 0080 UFS, 0084 autoswipe, historical 0081-0083.
 - `ci/prepare-baseline.sh` — fetch the pinned baseline, remove the topaz
   patches, add this project's patches, apply the small 0010/0012 change.
-- `ci/patchset_hash.py` — canonical 87-file patchset hash.
+- `ci/patchset_hash.py` — canonical patchset hash (0085: 88 files).
 - `ci/baseline-changes.patch` — the small 0010/0012 change only.
 - `tools/image/`, `tools/twrp/`, `scripts/check-bundle.py` — offline checks.
 - `scripts/build-payload.sh`, `tools/image/pack_boot.py`,
   `tools/image/boot_layout.py`, `scripts/test-pipeline.sh` — host pipeline.
-- `config/0084.env` — artifact hashes and the boot cmdline.
+- `config/0085.env` — artifact hashes and the boot cmdline (`0084.env` is the
+  previous milestone).
 
 ## What is not published
 

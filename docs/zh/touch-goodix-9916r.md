@@ -68,6 +68,9 @@ P1f/P1g 一直读到全 0 的原因。正确做法是显式写 VOUT：
 - LDO3 `0x09 = 0x3a`（selector `0x3a..0x40` = 1.8 V）；
 - LDO2 `0x15 = 0xd0`（selector `0xd0..0xd9` = 3.3 V）。
 
+P1f/P1g 在写 VOUT 之前就使能了电源，芯片短暂经历过 VMC 3.0 V；它没有
+损坏，但不要故意重复：应在断电状态写 VOUT、回读，然后再使能。
+
 ### 3.3 上电顺序
 
 ```
@@ -107,8 +110,11 @@ SDA=bit5；reset=bit15；IOVDD=bit14。
 注意：
 
 - **mode 的 `0x400/0x440` 是 group16/group20**，不是 bank4/bank5；
-- MTK clock gate 是 active-low：CLR `0x100010a8` 开钟、SET `0x100010a4`
-  关钟；本驱动用 bit-bang，不依赖 SPI3 控制器时钟；
+- MTK clock gate 是 active-low：CLR `0x100010a8` bit10 开钟、SET
+  `0x100010a4` bit10 关钟，STA `0x100010ac` bit10=1 表示 gated；本驱动用
+  bit-bang，不依赖 SPI3 控制器时钟；
+- CPOL/CPHA 在 `SPI_CMD` bit8/9；`CFG0=0x3F003F` 是 CS setup/hold 时序，
+  不是 mode 3；
 - I2C/SPI 线是开漏/外部上拉，释放时把 DIR 设为输入。
 
 ## 5. SPI 协议（BerlinD）

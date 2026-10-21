@@ -193,7 +193,7 @@ DTS 没有 `mediatek,fifo_only`，`i2c-mtk.c` 默认走 APDMA；P1e 不能只写
 FIFO。按 DTS 的 `scl-gpio-id=132` / `sda-gpio-id=133` 做 GPIO bit-bang
 （P1e 采用）。
 
-P1e 已构建、未刷：
+P1e 已构建并运行：
 `<workdir>/touch-p1e.img`，
 SHA-256 `91dce77af9501f1666bd345a4c610a0107ef228e27825f259c51898e2b2b392e`。
 
@@ -225,7 +225,7 @@ LDO2 `old=0x80 → new=0xC4` bit6=1；CRC 协议有效，VMC/VTP 已 enable。
 IOVDD/SPI 正常，但 `CONF`/`VER` 仍全 0。电源已排除；下一步查
 CS/MISO/SPI 传输/复位，建议 GPIO bit-bang SPI（绕开控制器/pad-select）。
 
-P1g 已构建、未刷：
+P1g 已构建并运行：
 `<workdir>/touch-p1g.img`，
 SHA-256 `e93b74fcb0b369b7df72d710d83c0a394b0df56c03815455f230bd476137e4e0`。
 在 P1f 基础上保留 CRC8 RMW，给 VMC/VTP 30ms；IOVDD 高、
@@ -273,7 +273,7 @@ enable 位（bit6），没写 VOUT 寄存器，因此芯片实际拿到的是
 这也解释了为什么 warm reboot 也没用：PMIC 复位后 VOUT 回到默认，
 enable 状态也回到 0（P1g 读到的 `old=0x80` 正是默认）。
 
-**P1h（已构建、未刷）：** `touch-p1h.img`，SHA-256
+**P1h（已刷入并运行，随后 panic）：** `touch-p1h.img`，SHA-256
 `b4663587882cb225619985bcf2257fd780b24daad1c519ea1af5762fffc93a9b`。
 在 P1g 基础上：
 
@@ -334,7 +334,7 @@ BerlinD **没有** SPI mode 切换/锁 CPU/时钟/D12/软复位序列；失败�
 
 ### P2 — 一帧真实上报
 
-P2 probe 已构建、未刷：`touch-p2.img`，SHA-256
+P2 probe 已构建并运行（通过）：`touch-p2.img`，SHA-256
 `3d18d7a7bd1a8b1541d8233a276c60ba3635dc830ff90532636d6ed2d3c086ec`。
 保持 P1h2 的 LDO 1.8 V/3.3 V + bit-bang 上电，然后循环 **30 秒**
 轮询 `0x10308` 的 34 字节：

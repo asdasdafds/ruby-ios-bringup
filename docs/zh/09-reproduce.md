@@ -6,7 +6,7 @@
 > [`../../GUARANTEE.zh.md`](../../GUARANTEE.zh.md)。
 
 内核构建可复现；boot 镜像和 iOS root 不是完全自包含：Apple 用户态不可
-分发，0084 镜像用了上游 shim/loader/ADT 构建器，而它不在仓库里。这一章
+分发，0085/0084 镜像用了上游 shim/loader/ADT 构建器，而它不在仓库里。这一章
 说明哪些能从仓库复现，哪些要自备。
 
 ## 需要自备
@@ -43,26 +43,29 @@ host 管线只用 <1 GiB 工件，不碰 16 GiB root。shim 和 ADT 是外部输
 
 ```sh
 sh scripts/build-payload.sh --kernel <kernel> --adt <adt> \
-  --cmdline-file config/0084-boot.cmdline --out <payload.bin>
+  --cmdline-file config/0085-boot.cmdline --out <payload.bin>
 
 python tools/image/pack_boot.py --base <magisk.img> --shim <Image> \
   --payload <payload.bin> --out <boot.img>
 
 python tools/image/boot_layout.py --image <boot.img> \
-  --config config/0084.env --payload <payload.bin> --base <magisk.img>
+  --config config/0085.env --payload <payload.bin> --base <magisk.img>
 ```
 
-`--golden <0084.img>` 是可选的；没有 golden 镜像时，config pin 足够做外部
+`--golden <boot.img>` 是可选的；没有 golden 镜像时，config pin 足够做外部
 校验。root 单独按 [`root-recipe.md`](root-recipe.md) 准备。
 
-或用 `scripts/test-pipeline.sh` 一次跑完。
+上面三条命令是 0085 路径；`scripts/test-pipeline.sh` 是 0084 里程碑的
+harness，固定用 `config/0084.env`，默认不测试 0085。
 
-0084 输入产出的 payload 是
-`50701e819368239252527cc61e9bb67d4d7387798272d781f0a72470751de178`。
-确定性打包器（seed `0x84`）产出
-`a0ce0fe131c2a9b63da340824ad5c94db327c966c55b2dd5d7f518a15e5a0132`；
-它与原 0084 镜像布局等价，但不是字节一致。原镜像用了 `os.urandom` filler；
-重建镜像请用 `boot_layout.py`，不要用镜像 SHA。
+0085 真实触摸输入产出的 payload 是
+`dbc57e96396f2e3e23213a76d300b1a329e2b4a320bc7363cf99ce0fc9e52b1c`。
+实机镜像 `ace60d16...`；CI 重建内核打包出的镜像
+`54d1b306...`（未刷）。这些镜像用了随机 filler，重建时请校验布局而不是
+镜像 SHA。
+
+上一里程碑：0084 输入产出 payload `50701e81...`，seed `0x84` 重建为
+`a0ce0fe1...`，与 `94c639d1...` 布局等价但非字节一致。
 
 2026-10-22：B+NOP 首启 -> A' 和 CI kernel 启动已在作者设备上跑过。CI kernel
 用了 payload ref `33852e3`，不是 pin `5095ac1`。A' 是首启快照；第二台/
@@ -70,9 +73,9 @@ python tools/image/boot_layout.py --image <boot.img> \
 
 ## 打包 boot 镜像
 
-0084 镜像用了上游 loader/ADT 构建器。仓库有早期 `src/bringup` 打包器和
-离线校验器，但没有上游 loader 源码。完整重建请用基线的 `shim/` 和
-`tools/`，或自备打包器。
+0085/0084 镜像使用上游 loader/ADT 构建器（本轮实验用外部 ruby-loader 工具）。
+仓库有早期 `src/bringup` 打包器和离线校验器，但没有上游 loader 源码。
+完整重建请用基线的 `shim/` 和 `tools/`，或自备打包器。
 
 必须满足：
 
@@ -96,14 +99,18 @@ fastboot reboot
 
 ## 启动参数
 
-`config/0084-boot.cmdline` 是 boot23 的实际 cmdline。关键参数：
+`config/0085-boot.cmdline` 是真实触摸的 cmdline。关键参数：
 
 | 参数 | 作用 |
 |---|---|
 | `cpus=6` | 6 个 A55 |
 | `ufsroot=iosroot`、`ufslun=2`、`ufsrw=1`、`rootrw=1` | root 设备 |
 | `sweetfb_noconsole=1`、`sweetfb_hz=30` | 显示/调试 |
-| `sweetautoswipe=90000`、`sweetautoswiperetry=15000`、`sweetautoswipeattempts=3` | 合成上滑 |
+| `sweetgt=1` | 启用 Goodix 驱动；`0` 关闭 |
+
+0084 合成上滑里程碑用 `config/0084-boot.cmdline` 和
+`sweetautoswipe=90000`、`sweetautoswiperetry=15000`、
+`sweetautoswipeattempts=3`；0085 去掉这些，只让真实触摸驱动 UI。
 
 ## 预期现象
 
@@ -113,7 +120,7 @@ fastboot reboot
   4–5 分钟。
 - 锁屏：日期从 12 月 31 日开始（无 RTC/NTP），时钟会走；有相机图标和
   Home Bar。
-- 合成上滑解锁到桌面，动画正常。
+- 真实底边上滑解锁到桌面（0085），双指/edge 正常；0084 合成上滑也可解锁。
 - 可能有黑壁纸、`Waiting...` widget、Messages badge。
 - 0085 内核真实触摸已通（底边上滑解锁、双指、edge）；按键、USB、Wi-Fi、GPU、RTC 未通。
 - 启动前镜像 hash 固定；启动后的 live-root/ring/日志 hash 和时序易变（见

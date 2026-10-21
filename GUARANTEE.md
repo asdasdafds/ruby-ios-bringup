@@ -26,7 +26,8 @@ Given all of the following:
 - the same device situation (ruby / MT6877, Android 12 / MIUI 13.0.4, unlocked,
   slot `_a`, the partition layout in `docs/en/device.md`);
 - the same boot image and iOS root/ICL state (hashes below);
-- the boot args in `config/0084-boot.cmdline`;
+- the boot args in `config/0085-boot.cmdline` (or `config/0084-boot.cmdline`
+  for the synthetic-swipe image);
 - the documented procedure in `docs/en/09-reproduce.md` and
   `docs/en/05-userland.md`;
 
@@ -52,7 +53,7 @@ configuration.
 | Root image (A) | `e698339d...` | external; success snapshot; verify before use |
 | ICL original block | `ae317804...` | restore path |
 | ICL patched block | `4a489542...` | bypass |
-| Boot args | `config/0084-boot.cmdline` | exact boot23 cmdline |
+| Boot args | `config/0085-boot.cmdline` | real-touch cmdline; `0084` is the previous milestone |
 | Success criterion | all timings from the Apple logo: first boot ~60 s (58 s measured); warm reboot ~22 s; 2026-10-22 B+NOP first boot 22 s / 30 s; swipe to home; animations | author's boot22/boot23 and 2026-10-22 run |
 
 Root states (all external; full images are not in the repo):

@@ -4,7 +4,7 @@
 
 这是设备描述，不是设备基线 hash 清单。GPT、`boot_a/b`、`vbmeta` 或分区
 GUID 的 hash **有意不发布**：它们可能成为设备指纹。成功契约里的工件 hash
-在 `config/0084.env`。
+在 `config/0085.env`（`config/0084.env` 是上一合成上滑里程碑）。
 
 ## 这台机器
 
@@ -15,7 +15,7 @@ GUID 的 hash **有意不发布**：它们可能成为设备指纹。成功契�
 | 系统 | Android 12 / MIUI 13.0.4，已解锁，Magisk，slot `_a` |
 | 分区布局 | `userdata` 208.4 GiB + `iosroot` 17 GiB；`boot_a` 128 MiB；`super` 约 9.1 GB |
 | 当前状态 | `boot_a` 为 0084 XNU 镜像；Android 未恢复；`iosroot` 保留 ICL NOP |
-| 成功工件 | 0084 boot 镜像、内核、root 镜像、ICL 块、boot cmdline |
+| 成功工件 | 0085 真实触摸 boot 镜像/内核、0084 boot 镜像、root 镜像、ICL 块、boot cmdline |
 
 ## 必须匹配
 
