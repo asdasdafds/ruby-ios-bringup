@@ -44,6 +44,9 @@ volatile and are not a contract (see `VERIFICATION.md` "Hash stability").
 - Workflow: `.github/workflows/xnu.yml`. It runs the recipe, enforces the
   patchset hash, and gates the built kernel's exec-data hash against
   `e4823afb...`; see `ci/README.md`.
+- 2026-10-22 CI run `39694456200` on branch `touch-0085` (`042ec31`) succeeded:
+  kernel full `904e10df...`, exec-data `e4823afb...` (matches the booted
+  kernel), CI image `54d1b306...` (packed locally, not flashed).
 
 ### Previous milestone (0084)
 

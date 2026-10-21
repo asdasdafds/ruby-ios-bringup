@@ -77,6 +77,20 @@ The full upstream tree and `ci/ruby-baseline.diff` are **not** in the clean
 history. Previous milestone: the 0084 patchset `de1824c2...` (87 files), kernel
 `b38fca5f...`/`8a80855d...`, image `94c639d1...`.
 
+### CI rebuild (0085)
+
+- Run `39694456200` on branch `touch-0085`, head `042ec31`, workflow_dispatch;
+  conclusion **success**.
+- Patchset gate: `cf4008e3...` (88 files), identical to the harness build.
+- CI kernel: full `904e10df...`, size 17,226,832; exec-data `e4823afb...`,
+  **identical to the booted kernel**.
+- Per-segment: `__TEXT_EXEC` `e9f67a2a...` and `__DATA_CONST` `38f78ce4...`
+  match the booted kernel; `__TEXT` and `__LINKEDIT` differ because of build
+  paths/DWARF, so the full SHA differs. This is the documented distinction.
+- The CI kernel was packed locally to image `54d1b306...`; layout is identical
+  (kernel slot 16,606,685, raw 37,449,728, ADT `c778d4b5...`, same cmdline).
+  It was **not flashed**.
+
 ## Root state audit (2026-10-22)
 
 Read-only audit of the external frozen root image; no device writes.
@@ -101,8 +115,9 @@ paths or device identifiers.
 ## Guarantee status (2026-10-22)
 
 - **G1 — host/build:** verified. A fresh clone passes `verify-local.py`; the
-  kernel workflow uses the recipe and enforces the canonical patchset hash; CI
-  was green before the final docs/template-only amendment; see Actions.
+  0085 workflow uses the recipe, enforces the canonical patchset hash, and the
+  exec-data hash gate. CI run `39694456200` succeeded and matched the booted
+  kernel's exec-data hash.
 - **G2 — success path:** documented recipe with **one-unit device evidence**
   (B+NOP first boot -> A', and the CI kernel boot). It has not been independently
   reproduced on a second unit or in a clean-room. Pre-boot hashes are the

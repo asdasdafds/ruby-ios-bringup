@@ -76,6 +76,8 @@ kernel85   9eb9acac8a4c936c1861fba1e0d29c105b714e8d0e6d407b48f4237076e6b947
 execdata85 e4823afb97360e24708184d09c0dc6c9f7280e33d5c4aefbeb901b3fa9b11e3e
 image85    ace60d1645ec271cdbd55b7007456cb578168ca708382aafae8fbf506e68f6c8
 payload85  dbc57e96396f2e3e23213a76d300b1a329e2b4a320bc7363cf99ce0fc9e52b1c
+ci85 kern  904e10dfc14c5e9cc0abd8a6ad7a8b6399526e31a33deb64ceb93cdde0a30d12
+ci85 image 54d1b3066a3782cab36135dbe8d666cf53bbd6837b8394105d7e61de9b32b10d
 patch84    de1824c28b5e56f7c60988c33501cd5bbfd24a4159d9358223fd2af11392d360
 0010/0012  1edb66332bb4daa8b1abcd6c4de77a0e88ed9c7e9bb4a2a7045a2696e53ab338
 kernel84   b38fca5f38cfb721e21228eac4dd4b355000d1b850bdf204afba9ff8b8d1afcd
@@ -118,8 +120,8 @@ whole-disk hash.
 ## Guaranteed
 
 - The patchset and recipe: the workflow refuses to build unless the recipe
-  reproduces `cf4008e3...` (88 files). The first 0085 CI run is pending the
-  repository push; record its artifact hash when it completes.
+  reproduces `cf4008e3...` (88 files). The first 0085 CI run `39694456200`
+  succeeded; its exec-data hash matched the booted kernel.
 - The offline tools: host checks, synthetic and real ICL block round-trips.
 - The documented success-path procedure and its scope.
 - The 2026-10-22 one-unit device evidence (B+NOP first boot -> A', CI kernel

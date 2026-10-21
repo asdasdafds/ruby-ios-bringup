@@ -43,6 +43,7 @@ The full upstream tree and `ci/ruby-baseline.diff` are **not** in the repo.
 | Booted kernel | `9eb9acac...` (harness, same patchset) |
 | Booted kernel exec-data | `e4823afb...` (gate) |
 | Booted boot image | `ace60d16...` |
+| CI run (2026-10-22) | `39694456200`; kernel full `904e10df...`, exec-data `e4823afb...` (matches), image `54d1b306...` (packed, not flashed) |
 
 The reference SHAs are provenance, not a byte-for-byte guarantee for a future
 run. The patchset hash and the exec-data hash are the gates; record the actual
