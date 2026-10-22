@@ -44,7 +44,7 @@ project's delta; the workflow verifies the applied tree before building.
 | Userland | launchd → lsd → backboardd → SpringBoard |
 | Input | **real Goodix GT9916R** over bit-bang SPI3; unlock, two-contact HID dispatch, edge; 0084 synthetic swipe still available |
 | Storage | UFS LUN 2, read/write HFS+ on `iosroot` |
-| Latest run | real-touch 0085 boot; 0084 B+NOP first boot -> A' (22 s / 30 s from the Apple logo); CI kernel boot |
+| Latest run | real-touch 0085 boot (harness and main-CI rebuild); 0084 B+NOP first boot -> A' (22 s / 30 s from the Apple logo); CI kernel boot |
 | Open | second unit/clean-room; from-IPSW root/shim/ADT builders; strict pinned payload |
 | Not yet | keys, USB, Wi-Fi, GPU, RTC |
 | Safety | AMFI/sandbox/code signing off; data may be lost |

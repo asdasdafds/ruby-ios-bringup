@@ -38,5 +38,5 @@ testdata/*
 .DS_Store
 Thumbs.db
 
-# Private management notes: local only, never committed or pushed
+# Local-only data: never committed or pushed
 private/

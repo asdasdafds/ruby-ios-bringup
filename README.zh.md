@@ -37,7 +37,7 @@
 | 用户态 | launchd → lsd → backboardd → SpringBoard |
 | 输入 | **真实 Goodix GT9916R**，bit-bang SPI3；解锁、双指 contact 上报、edge；0084 合成上滑仍保留 |
 | 存储 | UFS LUN 2，`iosroot` 上读写 HFS+ |
-| 最新 run | 真实触摸 0085 启动；0084 B+NOP 首启 -> A'（从 Apple logo 起 22 秒 / 30 秒）；CI kernel 启动 |
+| 最新 run | 真实触摸 0085 启动（harness 与 main-CI 重建）；0084 B+NOP 首启 -> A'（从 Apple logo 起 22 秒 / 30 秒）；CI kernel 启动 |
 | 未闭环 | 第二台/干净室；从 IPSW 造 root/shim/ADT；严格 pin 的 payload |
 | 未通 | 按键、USB、Wi-Fi、GPU、RTC |
 | 安全 | AMFI/sandbox/签名关闭；可能丢数据 |

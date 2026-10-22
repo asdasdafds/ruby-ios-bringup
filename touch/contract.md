@@ -1,8 +1,9 @@
 # 触控合同
 
 2026-10-22 在作者设备上用 Android 12 / MIUI 13.0.4 的 `su` 只读取证。
-原始日志在仓库外 `ruby-touch-2026-10-22/`（dmesg、getevent、input-devices、
-interrupts、vendor-firmware、getprop、live FDT）；本文件只放脱敏结论。
+原始日志仅保留在本地私有归档（gitignore，不提交、不分享；可能含设备标识；
+dmesg、getevent、input-devices、interrupts、vendor-firmware、getprop、
+live FDT）；本文件只放脱敏结论。
 
 状态：`confirmed` = 有运行时日志/DT/FDT 证据；`inferred` = 从证据推导，
 还需源码或 probe 验证；`unknown` = 还没拿到。
@@ -225,7 +226,7 @@ SWEET GT: BERLIN/9916R ready, 1080x2400
 真实触摸、锁屏底边上滑工作，**不需要 Y 翻转**；两指同时按下时
 `SweetHIDTouch` 会把两个 finger 拼进一个 collection，但用户态 pinch 未
 单独加日志验证。
-原始日志：`ruby-touch-2026-10-22/sweetlog_p3_0085.txt`。
+原始日志：本地私有归档（raw 原件与日志均不入库）。
 
 ### pinctrl（FDT 解析）
 
@@ -452,8 +453,8 @@ IRQ 线程的主导序列是 **34 → 6**，下一轮再从 6 → 34；活跃期
 | `/proc/interrupts` | `GICv3 238 Level 11013000.spi3`；`mt-eint 14 Edge goodix_ts` |
 | `ruby-s-oss@914ba84` | `drivers/input/touchscreen/goodix_9916r/`：SPI 前缀、26/34/42、checksum、上电/复位、fw update、fwsize CFI |
 
-原始日志不提交：仓库外 `ruby-touch-2026-10-22/`。固件 blob、设备 dump、
-序列号/IMEI 不进入本仓库。
+原始日志不提交：仅保留在本地（gitignore；可能含设备标识，不分享）。
+固件 blob、设备 dump、序列号/IMEI 不进入本仓库。
 
 ## 7. 给 XNU 最小驱动的最小输入
 

@@ -49,7 +49,8 @@ volatile and are not a contract (see `VERIFICATION.md` "Hash stability").
   kernel), CI image `54d1b306...` (packed locally, not flashed).
 - 2026-10-22 main CI run `39696625623` (`53dc3a9`) succeeded: kernel full
   `00cb6cc8...`, exec-data `e4823afb...` (matches), per-segment
-  `__TEXT_EXEC`/`__DATA_CONST` match. Kernel downloaded; not packed/flashed.
+  `__TEXT_EXEC`/`__DATA_CONST` match. Packed to `61f9d24e...`, flashed to
+  `boot_a`, and **booted on the author's unit; real touch works**.
 
 ### Previous milestone (0084)
 

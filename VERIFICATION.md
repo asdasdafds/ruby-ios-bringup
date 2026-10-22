@@ -92,8 +92,9 @@ history. Previous milestone: the 0084 patchset `de1824c2...` (87 files), kernel
   It was **not flashed**.
 - Main CI run `39696625623` (head `53dc3a9`) also succeeded: full
   `00cb6cc8...`, exec-data `e4823afb...` (matches), and the same
-  `__TEXT_EXEC`/`__DATA_CONST` hashes. The kernel was downloaded; no image was
-  packed or flashed from this run.
+  `__TEXT_EXEC`/`__DATA_CONST` hashes. The kernel was packed to
+  `61f9d24e...`, flashed to `boot_a`, and booted on the author's unit; real
+  touch works (one-unit observation).
 
 ## Root state audit (2026-10-22)
 
@@ -197,6 +198,10 @@ Author's unit; one run. Root images are external.
 - Real bottom-edge swipe unlocked the lock screen; coordinates were not
   inverted. The full SWEETLOG is external and not committed; only the
   sanitized excerpt and aggregate counts are recorded.
+- The main-CI rebuild image `61f9d24e...` (kernel `00cb6cc8...`, same
+  exec-data) was flashed to `boot_a` and booted on the author's unit; real
+  touch works. This extends the one-unit real-touch evidence to the
+  main-CI artifact.
 
 ## Device-verified (historical)
 

@@ -83,7 +83,8 @@ def sha256(data):
 
 def walk_files():
     for dirpath, dirnames, filenames in os.walk(ROOT):
-        dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__")]
+        # Skip local-only, gitignored data.
+        dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "private")]
         for name in filenames:
             yield os.path.join(dirpath, name)
 
