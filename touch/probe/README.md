@@ -379,7 +379,9 @@ flash。ESD tick（每 3 秒读 `0x10170`、必要时写 `0xAA`）第一版可�
 `bsd/dev/sweet_goodix_spi.c`：内核线程 + `ml_io_map`，复用本目录验证过的
 LDO/复位/bit-bang SPI/帧解析，调用 `sweet_hid_touch(id, down, raw/10, raw/10)`。
 实机 sweetlog：`BERLIN/9916R ready, 1080x2400`；206 down / 206 up、
-40 条双指、84 条 edge；真实底边上滑解锁。没有使用 `IOTimerEventSource`，
+40 条 finger-1、84 条 edge；真实底边上滑解锁。两指同时按下时
+`SweetHIDTouch` 会把两个 finger 拼进一个 collection；用户态 pinch 未单独
+验证。没有使用 `IOTimerEventSource`，
 而是独立内核线程轮询（约 100 Hz），避免和 HID workloop 耦合。
 
 后续优化：改用 SPI3 控制器（先修 FIFO 残留/DMA）、EINT14 中断、ESD tick、

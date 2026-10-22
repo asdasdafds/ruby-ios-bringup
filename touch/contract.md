@@ -220,9 +220,11 @@ SWEET GT: rails on en3=c4 en2=c4
 SWEET GT: BERLIN/9916R ready, 1080x2400
 ```
 
-`SWEET HID: touch` 共 413 行：206 down / 206 up、40 条双指（touch 1）、
+`SWEET HID: touch` 共 413 行：206 down / 206 up、40 条 finger-1（touch 1）、
 84 条 edge；down 坐标 x 0–1038、y 5–2399；无 `stopped`/panic/fail。
-真实触摸、锁屏底边上滑、双指均工作，**不需要 Y 翻转**。
+真实触摸、锁屏底边上滑工作，**不需要 Y 翻转**；两指同时按下时
+`SweetHIDTouch` 会把两个 finger 拼进一个 collection，但用户态 pinch 未
+单独加日志验证。
 原始日志：`ruby-touch-2026-10-22/sweetlog_p3_0085.txt`。
 
 ### pinctrl（FDT 解析）

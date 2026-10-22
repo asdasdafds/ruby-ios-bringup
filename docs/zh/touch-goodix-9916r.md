@@ -212,7 +212,7 @@ probe 的 Device-memory 非对齐访问限制。
 | P1h | 显式写 VOUT | 蓝屏：LLVM SLP 生成 `ldur s0,[x0,#2]`，MMU 关时 alignment fault |
 | P1h2 | 关向量化 + volatile | **BERLIN/9916R、CONF/VER 全通过** |
 | P2 | 30 s 帧轮询 | 真实触摸帧、checksum、raw x/y 全部有效 |
-| P3 | XNU 驱动 | 真实底边上滑解锁、双指、edge |
+| P3 | XNU 驱动 | 真实底边上滑解锁、双指 contact 分发、edge |
 
 额外教训：
 
@@ -257,6 +257,8 @@ SWEET GT: rails on en3=c4 en2=c4
 SWEET GT: BERLIN/9916R ready, 1080x2400
 ```
 
-触摸统计：413 条 `SWEET HID: touch`，206 down / 206 up，40 条双指，
-84 条 edge；down x 0–1038、y 5–2399；无 stopped/panic/fail。完整日志在
-仓库外，只保留上述摘录和统计。
+触摸统计：413 条 `SWEET HID: touch`，206 down / 206 up，40 条 finger-1
+（不是 40 帧双指），84 条 edge；down x 0–1038、y 5–2399；无
+stopped/panic/fail。两指同时按下时 `SweetHIDTouch::touch()` 会把两个
+finger 都 append 到同一个 digitizer collection；用户态 pinch 未单独加日志
+验证。完整日志在仓库外，只保留上述摘录和统计。

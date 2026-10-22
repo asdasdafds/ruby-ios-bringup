@@ -30,7 +30,9 @@
 - 手指消失、或连续 50 次坏读时释放。
 
 实机证据：`SWEET GT: BERLIN/9916R ready, 1080x2400`；206 down / 206 up，
-40 条双指、84 条 edge；真实底边上滑解锁成功。限制：轮询、无 IRQ/ESD、
+40 条 finger-1、84 条 edge；真实底边上滑解锁成功。两指同时按下时
+`SweetHIDTouch::touch()` 会把两个 finger 都 append 到同一个 digitizer
+collection；用户态 pinch 未单独加日志验证。限制：轮询、无 IRQ/ESD、
 最多两指、不做固件/config 下载。
 
 ## HID 链路

@@ -216,7 +216,7 @@ longer applies.
 | P1h | write VOUT | panic: LLVM SLP emitted `ldur s0,[x0,#2]`, alignment fault with MMU off |
 | P1h2 | no vectorization + volatile | **BERLIN/9916R, CONF/VER passed** |
 | P2 | 30 s frame poll | real touch frames, checksums, raw x/y valid |
-| P3 | XNU driver | real bottom-edge unlock, two fingers, edge |
+| P3 | XNU driver | real bottom-edge unlock, two-contact HID dispatch, edge |
 
 Lessons:
 
@@ -267,6 +267,8 @@ SWEET GT: BERLIN/9916R ready, 1080x2400
 ```
 
 Touch statistics: 413 `SWEET HID: touch` records, 206 down / 206 up,
-40 two-finger and 84 edge records; down x 0–1038, y 5–2399; no
-stopped/panic/fail. The full log is external; only the excerpt and aggregate
-counts are recorded.
+40 finger-1 and 84 edge records; down x 0–1038, y 5–2399; no
+stopped/panic/fail. When two contacts are active, `SweetHIDTouch::touch()`
+appends both finger children to one digitizer collection; a user-visible pinch
+was not separately instrumented. The full log is external; only the excerpt and
+aggregate counts are recorded.

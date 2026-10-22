@@ -6,8 +6,9 @@
 一个研究性 bring-up，以独立、脱敏的增量形式打包。
 
 > **状态 2026-10-22：真实触摸已通。** 0085 内核通过 GPIO bit-bang SPI3
-> 驱动 Goodix GT9916R，能用真实底边上滑解锁，双指和 edge 手势都正常；
-> 0084 镜像和 CI 内核也都能到达锁屏并合成上滑进桌面。**计时从出现 Apple
+> 驱动 Goodix GT9916R，能用真实底边上滑解锁，并把两个同时按下的 contact
+> 和 edge 事件分发到 HID 层（内核 IOLog 证据；用户态 pinch 未单独加日志
+> 验证）。0084 镜像和 CI 内核也都能到达锁屏并合成上滑进桌面。**计时从出现 Apple
 > logo 开始：** B+NOP 首启观察到 22 秒到锁屏、30 秒 autoswipe；历史首启
 > 约 58 秒，热重启约 22 秒。按键、USB、Wi-Fi、GPU、RTC 仍未通。
 >
@@ -34,7 +35,7 @@
 | CPU | 6× Cortex-A55，16K 页，GICv3，定时器 |
 | 显示 | IOSurface/IOMFB → LK framebuffer，1080×2400 |
 | 用户态 | launchd → lsd → backboardd → SpringBoard |
-| 输入 | **真实 Goodix GT9916R**，bit-bang SPI3；解锁、双指、edge；0084 合成上滑仍保留 |
+| 输入 | **真实 Goodix GT9916R**，bit-bang SPI3；解锁、双指 contact 上报、edge；0084 合成上滑仍保留 |
 | 存储 | UFS LUN 2，`iosroot` 上读写 HFS+ |
 | 最新 run | 真实触摸 0085 启动；0084 B+NOP 首启 -> A'（从 Apple logo 起 22 秒 / 30 秒）；CI kernel 启动 |
 | 未闭环 | 第二台/干净室；从 IPSW 造 root/shim/ADT；严格 pin 的 payload |

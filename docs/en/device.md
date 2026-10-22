@@ -33,7 +33,8 @@ Touch firmware, Wi-Fi, USB, GPU and RTC are not part of the success path.
 
 ## Testing status
 
-A real-touch 0085 boot (real bottom-edge unlock, two fingers, edge) and the
+A real-touch 0085 boot (real bottom-edge unlock, two-contact HID dispatch,
+edge; user-visible pinch not separately instrumented) and the
 0084 home-screen/CI-kernel boots were observed on the author's unit on
 2026-10-22; no second unit or clean-room has been tested. CI builds the kernel
 only. See

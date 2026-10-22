@@ -1,6 +1,7 @@
 # 触控 bring-up 实验室
 
-真实触摸已通过 0085 移植并在实机验证（锁屏底边上滑、双指、edge）。
+真实触摸已通过 0085 移植并在实机验证（锁屏底边上滑、双指 contact 分发、
+edge；用户态 pinch 未单独验证）。
 0084 的合成上滑证明了
 `SweetHIDTouch -> IOHIDEventService -> backboardd -> SpringBoard` 链路；
 本目录保留 probe 阶梯、硬件契约和失败记录，完整手册见

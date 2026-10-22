@@ -22,7 +22,7 @@
 | 10-21 | Trace | 0083 `SWEET IOX:` | `sent=1`；内核清白 |
 | 10-21 | ICL NOP | 4 字节 `bl`→`nop` | boot22 锁屏 58 秒 |
 | 10-21 | 合成上滑 | 0084 内核定时器 | boot23 热重启从 Apple logo 起 22 秒，桌面，动画 |
-| 10-22 | 真实触摸 | 0085 Goodix SPI bit-bang、LDO VOUT 1.8/3.3 V | 真实底边上滑解锁、双指、edge |
+| 10-22 | 真实触摸 | 0085 Goodix SPI bit-bang、LDO VOUT 1.8/3.3 V | 真实底边上滑解锁、双指 contact 分发、edge |
 
 ## 失败目录
 

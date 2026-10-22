@@ -90,6 +90,10 @@ history. Previous milestone: the 0084 patchset `de1824c2...` (87 files), kernel
 - The CI kernel was packed locally to image `54d1b306...`; layout is identical
   (kernel slot 16,606,685, raw 37,449,728, ADT `c778d4b5...`, same cmdline).
   It was **not flashed**.
+- Main CI run `39696625623` (head `53dc3a9`) also succeeded: full
+  `00cb6cc8...`, exec-data `e4823afb...` (matches), and the same
+  `__TEXT_EXEC`/`__DATA_CONST` hashes. The kernel was downloaded; no image was
+  packed or flashed from this run.
 
 ## Root state audit (2026-10-22)
 
@@ -127,7 +131,8 @@ paths or device identifiers.
   driverkitd only; A' `55e2ab2c...`. CI kernel `8a80855d...` booted to the home
   screen (driverkitd + PosterBoard; no lsd/SpringBoard/backboardd). The 0085
   kernel `9eb9acac...` then booted with real Goodix touch; a real bottom-edge
-  swipe unlocked the screen; 206 down/206 up records, two fingers and edge.
+  swipe unlocked the screen; 206 down/206 up records, two-contact HID dispatch
+  and edge (user-visible pinch not separately instrumented).
 - **Deferred:** second-unit boot, Linux clean-room CI, strict pinned payload
   rebuild (the test used ref `33852e3`), root/shim/ADT builders as clean-room
   tools, original ICL block regression, keys/USB, long-run stability.
@@ -184,8 +189,11 @@ Author's unit; one run. Root images are external.
 - Boot log: `SWEET GT: LDO3 en=80 vout=b0, LDO2 en=80 vout=40`;
   `SWEET GT: rails on en3=c4 en2=c4`;
   `SWEET GT: BERLIN/9916R ready, 1080x2400`.
-- `SWEET HID: touch` 413 records: 206 down / 206 up, 40 two-finger records,
+- `SWEET HID: touch` 413 records: 206 down / 206 up, 40 finger-1 records,
   84 edge records; down x 0–1038, y 5–2399; no stopped/panic/fail.
+  `SweetHIDTouch::touch()` appends both active fingers to one digitizer
+  collection when both are down; a user-visible pinch was not separately
+  instrumented.
 - Real bottom-edge swipe unlocked the lock screen; coordinates were not
   inverted. The full SWEETLOG is external and not committed; only the
   sanitized excerpt and aggregate counts are recorded.

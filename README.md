@@ -7,7 +7,9 @@ A research bring-up, packaged as an independent, sanitized delta.
 
 > **Status 2026-10-22:** **real touch works.** The 0085 kernel drives the
 > Goodix GT9916R over bit-bang SPI3, unlocks the lock screen with a real
-> bottom-edge swipe, and reports two fingers and edge events. The 0084 image
+> bottom-edge swipe, and dispatches two simultaneous contacts and edge events
+> to the HID layer (kernel IOLog; a user-visible pinch was not separately
+> instrumented). The 0084 image
 > and a CI-built kernel also reach the lock screen and the synthetic swipe to
 > the home screen. **Timings are measured from the Apple logo:** the B+NOP
 > first boot was observed at 22 s to lock screen and 30 s to autoswipe; the
@@ -40,7 +42,7 @@ project's delta; the workflow verifies the applied tree before building.
 | CPU | 6× Cortex-A55, 16K pages, GICv3, timers |
 | Display | IOSurface/IOMFB → LK framebuffer, 1080×2400 |
 | Userland | launchd → lsd → backboardd → SpringBoard |
-| Input | **real Goodix GT9916R** over bit-bang SPI3; unlock, two fingers, edge; 0084 synthetic swipe still available |
+| Input | **real Goodix GT9916R** over bit-bang SPI3; unlock, two-contact HID dispatch, edge; 0084 synthetic swipe still available |
 | Storage | UFS LUN 2, read/write HFS+ on `iosroot` |
 | Latest run | real-touch 0085 boot; 0084 B+NOP first boot -> A' (22 s / 30 s from the Apple logo); CI kernel boot |
 | Open | second unit/clean-room; from-IPSW root/shim/ADT builders; strict pinned payload |

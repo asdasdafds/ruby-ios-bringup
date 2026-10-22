@@ -32,8 +32,10 @@ The driver:
 - releases a finger when it disappears or after 50 consecutive bad reads.
 
 Live evidence: `SWEET GT: BERLIN/9916R ready, 1080x2400`; 206 down / 206 up
-touch records, 40 two-finger and 84 edge records; a real bottom-edge swipe
-unlocked the lock screen. Limits: polling, no IRQ/ESD, at most two fingers, no
+touch records, 40 finger-1 and 84 edge records; a real bottom-edge swipe
+unlocked the lock screen. `SweetHIDTouch::touch()` appends both active fingers
+to one digitizer collection when both are down; a user-visible pinch was not
+separately instrumented. Limits: polling, no IRQ/ESD, at most two fingers, no
 firmware/config download.
 
 ## HID path

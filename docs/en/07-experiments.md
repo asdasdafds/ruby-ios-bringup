@@ -23,7 +23,7 @@ wrong turns.
 | 10-21 | Trace | 0083 `SWEET IOX:` | `sent=1`; kernel was clean |
 | 10-21 | ICL NOP | 4-byte `bl`→`nop` | boot22 lock screen 58 s |
 | 10-21 | Autoswipe | 0084 kernel timer | boot23 warm 22 s from the Apple logo, home screen, animations |
-| 10-22 | Real touch | 0085 Goodix SPI bit-bang, LDO VOUT 1.8/3.3 V | real bottom-edge unlock, two fingers, edge |
+| 10-22 | Real touch | 0085 Goodix SPI bit-bang, LDO VOUT 1.8/3.3 V | real bottom-edge unlock, two-contact HID dispatch, edge |
 
 ## Failure catalogue
 

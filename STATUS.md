@@ -13,7 +13,7 @@ status. No phone is attached to this repository or to its CI.
 | UFS root | LUN 2, GPT header at 512 / entries 1024, `iosroot` partition | read/write HFS+ mount on the author's device |
 | Display | IOSurface/IOMFB to LK framebuffer; 1080x2400 | surface markers and live UI |
 | HID path | `SweetHIDTouch -> IOHIDEventService -> backboardd -> SpringBoard` | synthetic autoswipe + real touch reach SpringBoard |
-| Real touch | Goodix GT9916R/BerlinD over bit-bang SPI3; bottom-edge unlock, two fingers, edge events | 0085 boot 2026-10-22; `SWEET GT` init log and 206 down/206 up touch records; see `docs/en/touch-goodix-9916r.md` |
+| Real touch | Goodix GT9916R/BerlinD over bit-bang SPI3; bottom-edge unlock, two-contact HID dispatch, edge events | 0085 boot 2026-10-22; `SWEET GT` init log, 206 down/206 up and 40 finger-1 kernel records; user-visible pinch not separately instrumented; see `docs/en/touch-goodix-9916r.md` |
 | Patch checks | 0084/0083/0081 apply to the pre-0084 build tree; 0080/0082 are already applied; 0085 applies after 0084 and built successfully | host-side `git apply --check`; CI run `39694456200` |
 | ICL tool | original block -> patched block reproduces `4a489542...` | host-side round-trip, 2026-10-21 |
 | Host pipeline | payload `50701e81...`; deterministic rebuild `a0ce0fe1...`; layout PASS vs 0084 | host-only, 2026-10-21; no root/phone |
@@ -47,6 +47,9 @@ volatile and are not a contract (see `VERIFICATION.md` "Hash stability").
 - 2026-10-22 CI run `39694456200` on branch `touch-0085` (`042ec31`) succeeded:
   kernel full `904e10df...`, exec-data `e4823afb...` (matches the booted
   kernel), CI image `54d1b306...` (packed locally, not flashed).
+- 2026-10-22 main CI run `39696625623` (`53dc3a9`) succeeded: kernel full
+  `00cb6cc8...`, exec-data `e4823afb...` (matches), per-segment
+  `__TEXT_EXEC`/`__DATA_CONST` match. Kernel downloaded; not packed/flashed.
 
 ### Previous milestone (0084)
 
@@ -82,8 +85,9 @@ of `VERIFICATION.md`.
   files; see `VERIFICATION.md`.
 - **device-verified (2026-10-22)**: B+NOP first boot -> A', the CI kernel boot,
   and the real-touch 0085 boot were observed on the author's unit. The 0085
-  sweetlog shows `BERLIN/9916R`, 206 down / 206 up records, 40 two-finger and
-  84 edge records. Post-boot hashes (live root, ring, logs) are volatile
+  sweetlog shows `BERLIN/9916R`, 206 down / 206 up records, 40 finger-1 and
+  84 edge records. `SweetHIDTouch` appends both active contacts to one
+  digitizer collection; a user-visible pinch was not separately instrumented. Post-boot hashes (live root, ring, logs) are volatile
   observations, not fixed pins.
 - **not verified**: everything else, including a from-scratch public
   reproduction on a different ruby unit, a second-unit boot, and the strict

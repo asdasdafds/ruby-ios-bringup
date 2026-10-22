@@ -134,10 +134,11 @@ The 0084 synthetic-swipe milestone uses `config/0084-boot.cmdline` with
 - Lock screen: date starts at `Wednesday, December 31` (no RTC/NTP); clock
   advances; camera icon and home bar.
 - A real bottom-edge swipe unlocks to the home screen with the 0085 kernel;
-  two fingers and edge gestures work. The 0084 synthetic swipe also unlocks.
+  two contacts are dispatched and edge works, but a user-visible pinch was not
+  separately instrumented. The 0084 synthetic swipe also unlocks.
 - Black wallpaper, `Waiting...` widgets and a Messages badge may remain.
-- Real touch works with the 0085 kernel (bottom-edge unlock, two fingers,
-  edge). Keys, USB, Wi-Fi, GPU and RTC are not implemented.
+- Real touch works with the 0085 kernel (bottom-edge unlock, two-contact
+  dispatch, edge). Keys, USB, Wi-Fi, GPU and RTC are not implemented.
 - Pre-boot image hashes are fixed; post-boot live-root/ring/log hashes and
   timing are volatile (see the "Hash stability" section of `GUARANTEE.md`).
 

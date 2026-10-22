@@ -120,9 +120,10 @@ fastboot reboot
   4–5 分钟。
 - 锁屏：日期从 12 月 31 日开始（无 RTC/NTP），时钟会走；有相机图标和
   Home Bar。
-- 真实底边上滑解锁到桌面（0085），双指/edge 正常；0084 合成上滑也可解锁。
+- 真实底边上滑解锁到桌面（0085）；两个 contact 会分发到 HID，edge 正常；
+  用户态 pinch 未单独加日志验证。0084 合成上滑也可解锁。
 - 可能有黑壁纸、`Waiting...` widget、Messages badge。
-- 0085 内核真实触摸已通（底边上滑解锁、双指、edge）；按键、USB、Wi-Fi、GPU、RTC 未通。
+- 0085 内核真实触摸已通（底边上滑解锁、双指 contact 分发、edge）；按键、USB、Wi-Fi、GPU、RTC 未通。
 - 启动前镜像 hash 固定；启动后的 live-root/ring/日志 hash 和时序易变（见
   `GUARANTEE.zh.md` 的「hash 稳定性」）。
 
