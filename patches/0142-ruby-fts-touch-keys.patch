@@ -13,7 +13,12 @@
   */
  #if defined(ARM64_BOARD_CONFIG_SWEET)
  
-@@ -24,9 +30,14 @@
+@@ -20,13 +26,19 @@
+ #include <kern/sched_prim.h>
+ #include <machine/machine_routines.h>
+ #include <pexpert/pexpert.h>
++#include <pexpert/device_tree.h>
+ 
  extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
  extern kern_return_t thread_terminate(thread_t);
  extern void sweet_hid_touch(int finger, int down, int x, int y);
@@ -28,7 +33,7 @@
  #define GT_GPIO_PA	0x10005000u
  #define GT_DIR(n)	(0x000u + ((n) * 0x10u))
  #define GT_DO(n)	(0x100u + ((n) * 0x10u))
-@@ -448,8 +459,12 @@ gt_version_ok(void)
+@@ -448,8 +460,12 @@ gt_version_ok(void)
  	    rx[11] == 'L' && rx[12] == 'I' && rx[13] == 'N';
  }
  
@@ -42,7 +47,7 @@
  {
  	uint8_t en3 = 0, en2 = 0, v3 = 0, v2 = 0;
  	uint32_t v;
-@@ -537,13 +552,16 @@ gt_hw_init(void)
+@@ -537,13 +553,16 @@ gt_hw_init(void)
  	gt_wr(GT_SPI_DO, (v & ~0x0fu) | GT_CS);
  	delay(20);
  
@@ -61,7 +66,7 @@
  	if (!gt_dev_confirm()) {
  		printf("SWEET GT: dev_confirm failed\n");
  		return false;
-@@ -655,19 +673,193 @@ gt_frame(void)
+@@ -655,19 +674,385 @@ gt_frame(void)
  	return 0;
  }
  
@@ -150,22 +155,214 @@
 +	return EIO;
 +}
 +
++/*
++ * The FT3680 has no flash: after every reset its ROM loader answers 0xef to
++ * all application registers until the host writes the 127300-byte app into
++ * PRAM, checks the loader's ECC and starts it (the vendor V3.3 driver's
++ * fts_pram_write_ecc; sequence as in the GPL mainline FocalTech FT8203 SPI
++ * driver).  The image is the phone's /vendor/firmware/focaltech_ts_fw.bin,
++ * passed in the ADT as /sweet-fts "firmware" (tools/mkadt_ruby.py --fts-fw)
++ * so it never lives in this tree.
++ */
++#define FTS_CMD_START1		0x55
++#define FTS_CMD_READ_ID		0x90
++#define FTS_CMD_SET_ADDR	0xad
++#define FTS_CMD_PRAM_WRITE	0xae
++#define FTS_CMD_START_APP	0x08
++#define FTS_CMD_ECC		0xcc
++#define FTS_CMD_ECC_READ	0xcd
++#define FTS_CMD_ECC_FINISH	0xce
++#define FTS_ECC_OK		0xa5
++#define FTS_ROM_ID_H		0x56
++#define FTS_ROM_ID_L		0x62
++#define FTS_APP_ID		0x56
++#define FTS_PRAM_PACKET		4092
++#define FTS_WR_MAX		(4 + 3 + FTS_PRAM_PACKET)
++/* ECC: reflected CRC over big-endian 16-bit words (0x9299 for ruby's image) */
++#define FTS_ECC_POLY		((1u << 15) | (1u << 10) | (1u << 3))
++
++static uint8_t fts_wtx[FTS_WR_MAX], fts_wrx[FTS_WR_MAX];
++
++/* Writes: [cmd, 0x00, len_hi, len_lo] then, with a payload, 3 dummy + data. */
++static int
++fts_write(uint8_t cmd, const uint8_t *data, unsigned len)
++{
++	unsigned total = 4 + (len ? 3 + len : 0), i;
++	int attempt;
++
++	if (total > sizeof(fts_wtx)) {
++		return EINVAL;
++	}
++	for (attempt = 0; attempt < 3; attempt++) {
++		for (i = 0; i < total; i++) {
++			fts_wtx[i] = 0;
++		}
++		fts_wtx[0] = cmd;
++		fts_wtx[1] = 0x00;
++		fts_wtx[2] = (len >> 8) & 0xff;
++		fts_wtx[3] = len & 0xff;
++		for (i = 0; i < len; i++) {
++			fts_wtx[7 + i] = data[i];
++		}
++		spi_xfer(fts_wtx, fts_wrx, total);
++		delay(FTS_CS_HIGH_US);
++		if (!(fts_wrx[3] & 0xa0)) {
++			return 0;
++		}
++	}
++	return EIO;
++}
++
++static void
++fts_reset_pulse(void)
++{
++	gt_wr(GT_RESET_DO, gt_rd(GT_RESET_DO) & ~GT_RESET);
++	gt_wait(2);
++	gt_wr(GT_RESET_DO, gt_rd(GT_RESET_DO) | GT_RESET);
++}
++
++static bool
++fts_enter_boot(void)
++{
++	uint8_t id[2];
++	int i, j;
++
++	for (i = 0; i < 30; i++) {
++		fts_reset_pulse();
++		gt_wait(8);
++		for (j = 0; j < 30; j++) {
++			if (fts_write(FTS_CMD_START1, NULL, 0) == 0) {
++				gt_wait(8);
++				if (fts_read(FTS_CMD_READ_ID, id, 2) == 0 &&
++				    id[0] == FTS_ROM_ID_H && id[1] == FTS_ROM_ID_L) {
++					return true;
++				}
++			}
++			gt_wait(1);
++		}
++	}
++	return false;
++}
++
++static uint16_t
++fts_ecc_host(const uint8_t *p, uint32_t len)
++{
++	uint16_t ecc = 0;
++	uint32_t i;
++	int j;
++
++	for (i = 0; i + 1 < len; i += 2) {
++		ecc ^= (uint16_t)((p[i] << 8) | p[i + 1]);
++		for (j = 0; j < 16; j++) {
++			ecc = (ecc & 1) ? (uint16_t)((ecc >> 1) ^ FTS_ECC_POLY)
++			    : (uint16_t)(ecc >> 1);
++		}
++	}
++	return ecc;
++}
++
++static int
++fts_ecc_chip(uint32_t len, uint16_t *ecc)
++{
++	uint8_t cmd[6] = { 0, 0, 0, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff };
++	uint8_t v[2] = { 0, 0 };
++	int i;
++
++	if (fts_write(FTS_CMD_ECC, cmd, sizeof(cmd)) != 0) {
++		return EIO;
++	}
++	gt_wait(3);
++	for (i = 0; i < 100; i++) {
++		if (fts_read(FTS_CMD_ECC_FINISH, v, 1) != 0) {
++			return EIO;
++		}
++		if (v[0] == FTS_ECC_OK) {
++			break;
++		}
++		gt_wait(2);
++	}
++	if (v[0] != FTS_ECC_OK) {
++		printf("SWEET FTS: ecc never finished (%02x)\n", v[0]);
++		return ETIMEDOUT;
++	}
++	if (fts_read(FTS_CMD_ECC_READ, v, 2) != 0) {
++		return EIO;
++	}
++	*ecc = (uint16_t)((v[0] << 8) | v[1]);
++	return 0;
++}
++
++static bool
++fts_download(void)
++{
++	DTEntry node;
++	void const *prop;
++	unsigned int size;
++	const uint8_t *fw;
++	uint32_t off;
++	uint16_t host, chip = 0;
++	uint8_t addr[3];
++
++	if (SecureDTLookupEntry(NULL, "/sweet-fts", &node) != kSuccess ||
++	    SecureDTGetProperty(node, "firmware", &prop, &size) != kSuccess ||
++	    size < 0x200 || size > 0x40000) {
++		printf("SWEET FTS: no /sweet-fts firmware in the ADT\n");
++		return false;
++	}
++	fw = (const uint8_t *)prop;
++	if (((uint32_t)((fw[0x100] << 8) | fw[0x101]) + ((fw[0x102] << 8) | fw[0x103])) != 0xffff) {
++		printf("SWEET FTS: bad firmware header\n");
++		return false;
++	}
++	if (!fts_enter_boot()) {
++		printf("SWEET FTS: no ROM boot id %02x %02x\n", FTS_ROM_ID_H, FTS_ROM_ID_L);
++		return false;
++	}
++	for (off = 0; off < size; off += FTS_PRAM_PACKET) {
++		unsigned chunk = size - off < FTS_PRAM_PACKET ? size - off : FTS_PRAM_PACKET;
++
++		addr[0] = (off >> 16) & 0xff;
++		addr[1] = (off >> 8) & 0xff;
++		addr[2] = off & 0xff;
++		if (fts_write(FTS_CMD_SET_ADDR, addr, sizeof(addr)) != 0 ||
++		    fts_write(FTS_CMD_PRAM_WRITE, fw + off, chunk) != 0) {
++			printf("SWEET FTS: pram write failed at %x\n", off);
++			return false;
++		}
++	}
++	host = fts_ecc_host(fw, size);
++	if (fts_ecc_chip(size, &chip) != 0 || chip != host) {
++		printf("SWEET FTS: ecc mismatch chip %04x host %04x\n", chip, host);
++		return false;
++	}
++	if (fts_write(FTS_CMD_START_APP, NULL, 0) != 0) {
++		printf("SWEET FTS: start app failed\n");
++		return false;
++	}
++	printf("SWEET FTS: firmware %u bytes in pram, ecc %04x, started\n", size, host);
++	gt_wait(100);
++	return true;
++}
++
 +static bool
 +fts_probe(void)
 +{
 +	uint8_t id = 0, id2 = 0, fw = 0;
 +	int i;
 +
-+	for (i = 0; i < 10; i++) {
-+		if (fts_read(FTS_REG_CHIP_ID, &id, 1) == 0 && id != 0x00 && id != 0xff) {
++	if (!fts_download()) {
++		return false;
++	}
++	for (i = 0; i < 20; i++) {
++		if (fts_read(FTS_REG_CHIP_ID, &id, 1) == 0 && id == FTS_APP_ID) {
 +			(void)fts_read(FTS_REG_CHIP_ID2, &id2, 1);
 +			(void)fts_read(FTS_REG_FW_VER, &fw, 1);
 +			printf("SWEET FTS: chip id %02x/%02x fw %02x, ready\n", id, id2, fw);
 +			return true;
 +		}
-+		gt_wait(100);
++		gt_wait(50);
 +	}
-+	printf("SWEET FTS: no chip id (last %02x)\n", id);
++	printf("SWEET FTS: firmware not running (id %02x)\n", id);
 +	return false;
 +}
 +
@@ -179,8 +376,8 @@
 +	if (fts_read(FTS_REG_TOUCH, d, sizeof(d)) != 0) {
 +		return EIO;
 +	}
-+	if (d[1] == 0xff && d[2] == 0xff && d[3] == 0xff) {
-+		return EAGAIN;	/* firmware not ready / ESD pattern */
++	if (d[1] == 0xef || d[1] == 0xff) {
++		return EAGAIN;	/* ROM loader (0xef) or not ready / ESD (0xff) */
 +	}
 +	n = d[1] & 0x0f;
 +	if (n > GT_MAX) {
@@ -258,7 +455,7 @@
  			if (++bad >= 50) {
  				gt_release_all();
  				bad = 0;
-@@ -684,6 +876,103 @@ out:
+@@ -684,6 +1069,212 @@ out:
  	thread_block(THREAD_CONTINUE_NULL);
  }
  
@@ -284,13 +481,106 @@
 +
 +static int kp_sleep_chan;
 +
++/*
++ * Power and volume-up are not in the keypad matrix on ruby (only hw key 0
++ * ever changes): they are MT6359 PWRKEY / HOMEKEY, read through the PMIC
++ * wrapper's AP software channel (WACS2, arbiter layout as Linux mtk-pmic-wrap
++ * mt6873; live FDT: mediatek,mt6877-pwrap @ 0x10026000).  Debounced state is
++ * MT6359 TOPSTATUS (0x2a): bit 1 PWRKEY, bit 3 HOMEKEY, clear = pressed
++ * (Linux mtk-pmic-keys).  Nothing is written to the PMIC.  Before polling,
++ * the channel must look idle and HWCID (0x08) must read 0x59xx; otherwise
++ * the PMIC keys stay off.  Boot-arg sweetpmickeys=0 disables them.
++ */
++#define PWRAP_PA		0x10026000u
++#define PWRAP_WACS2_CMD		0xc80
++#define PWRAP_SWINF2_RDATA	0xc94
++#define PWRAP_WACS2_VLDCLR	0xca4
++#define PWRAP_WACS2_RDATA	0xca8
++#define PWRAP_FSM(v)		(((v) >> 1) & 7)
++#define PWRAP_FSM_IDLE		0
++#define PWRAP_FSM_WFVLDCLR	6
++#define MT6359_HWCID		0x08
++#define MT6359_TOPSTATUS	0x2a
++#define MT6359_PWRKEY_DEB	(1u << 1)
++#define MT6359_HOMEKEY_DEB	(1u << 3)
++
++static vm_offset_t pwrap;
++
++static uint32_t
++pwrap_rd(uint32_t off)
++{
++	uint32_t v = *(volatile uint32_t *)(pwrap + off);
++	__asm__ volatile("dmb oshld" ::: "memory");
++	return v;
++}
++
++static bool
++pwrap_wait_fsm(uint32_t want)
++{
++	int i;
++
++	for (i = 0; i < 2000; i++) {
++		if (PWRAP_FSM(pwrap_rd(PWRAP_WACS2_RDATA)) == want) {
++			return true;
++		}
++		delay(1);
++	}
++	return false;
++}
++
++static bool
++pmic_read16(uint32_t adr, uint32_t *val)
++{
++	if (!pwrap_wait_fsm(PWRAP_FSM_IDLE)) {
++		return false;
++	}
++	__asm__ volatile("dmb oshst" ::: "memory");
++	*(volatile uint32_t *)(pwrap + PWRAP_WACS2_CMD) = adr & 0xffff;
++	__asm__ volatile("dsb osh" ::: "memory");
++	if (!pwrap_wait_fsm(PWRAP_FSM_WFVLDCLR)) {
++		return false;
++	}
++	*val = pwrap_rd(PWRAP_SWINF2_RDATA) & 0xffff;
++	*(volatile uint32_t *)(pwrap + PWRAP_WACS2_VLDCLR) = 1;
++	__asm__ volatile("dsb osh" ::: "memory");
++	return true;
++}
++
++static bool
++pmic_keys_init(void)
++{
++	int enabled = 1;
++	uint32_t st, id = 0;
++
++	if (PE_parse_boot_argn("sweetpmickeys", &enabled, sizeof(enabled)) && !enabled) {
++		printf("SWEET KEYS: PMIC keys disabled (sweetpmickeys=0)\n");
++		return false;
++	}
++	pwrap = ml_io_map(PWRAP_PA, 0x1000);
++	if (!pwrap) {
++		return false;
++	}
++	st = pwrap_rd(PWRAP_WACS2_RDATA);
++	if (PWRAP_FSM(st) != PWRAP_FSM_IDLE) {
++		printf("SWEET KEYS: pwrap WACS2 not idle (%08x); PMIC keys off\n", st);
++		return false;
++	}
++	if (!pmic_read16(MT6359_HWCID, &id) || (id >> 8) != 0x59) {
++		printf("SWEET KEYS: PMIC HWCID %04x (want 59xx); PMIC keys off\n", id);
++		return false;
++	}
++	printf("SWEET KEYS: MT6359 HWCID %04x via pwrap, polling power/volume-up\n", id);
++	return true;
++}
++
 +static void
 +kp_thread(void *arg, wait_result_t wr)
 +{
 +	vm_offset_t kp;
-+	uint32_t prev[KP_NMEM], cur, diff;
++	uint32_t prev[KP_NMEM], cur, diff, top = 0, top_prev = 0;
 +	uint64_t deadline;
 +	unsigned i, j, k;
++	bool pmic;
 +
 +	(void)arg;
 +	(void)wr;
@@ -305,8 +595,24 @@
 +	}
 +	printf("SWEET KEYS: keypad mem %04x %04x %04x %04x %04x, polling\n",
 +	    prev[0], prev[1], prev[2], prev[3], prev[4]);
++	pmic = pmic_keys_init();
++	if (pmic && pmic_read16(MT6359_TOPSTATUS, &top_prev)) {
++		printf("SWEET KEYS: TOPSTATUS %04x\n", top_prev);
++	}
 +
 +	for (;;) {
++		if (pmic && pmic_read16(MT6359_TOPSTATUS, &top)) {
++			diff = (top ^ top_prev) & (MT6359_PWRKEY_DEB | MT6359_HOMEKEY_DEB);
++			if (diff & MT6359_PWRKEY_DEB) {
++				printf("SWEET KEYS: PMIC power %s\n", (top & MT6359_PWRKEY_DEB) ? "up" : "down");
++				sweet_hid_key(0, !(top & MT6359_PWRKEY_DEB));
++			}
++			if (diff & MT6359_HOMEKEY_DEB) {
++				printf("SWEET KEYS: PMIC volume-up %s\n", (top & MT6359_HOMEKEY_DEB) ? "up" : "down");
++				sweet_hid_key(1, !(top & MT6359_HOMEKEY_DEB));
++			}
++			top_prev = top;
++		}
 +		for (i = 0; i < KP_NMEM; i++) {
 +			cur = *(volatile uint32_t *)(kp + KP_MEM(i)) & 0xffff;
 +			diff = cur ^ prev[i];
@@ -362,7 +668,7 @@
  void
  sweet_goodix_spi_init(void)
  {
-@@ -695,6 +984,7 @@ sweet_goodix_spi_init(void)
+@@ -695,6 +1286,7 @@ sweet_goodix_spi_init(void)
  		return;
  	}
  	gt.started = true;
