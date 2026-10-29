@@ -1,0 +1,372 @@
+--- a/bsd/dev/sweet_goodix_spi.c
++++ b/bsd/dev/sweet_goodix_spi.c
+@@ -9,6 +9,12 @@
+  *
+  * Only MT6360 LDO3/LDO2 EN+VOUT, GPIO 132/133 (I2C5), 160-163 (SPI3),
+  * reset 15 and IOVDD 110 are touched.  No firmware/config upload.
++ *
++ * 0142: ruby ships with two touch panels on the same pins.  GPIO38 high
++ * (the vendor driver's "TP is focaltech" check) selects the FocalTech
++ * FT3680 path (V3 SPI protocol, register 0x01 touch frames); low keeps
++ * Goodix.  Boot-arg sweettp=1 forces Goodix, sweettp=2 FocalTech.  The
++ * same file also polls the MTK keypad (power / volume) for SweetHIDButtons.
+  */
+ #if defined(ARM64_BOARD_CONFIG_SWEET)
+ 
+@@ -24,9 +30,14 @@
+ extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
+ extern kern_return_t thread_terminate(thread_t);
+ extern void sweet_hid_touch(int finger, int down, int x, int y);
++extern void sweet_hid_key(int key, int down);
+ 
+ #define GT_MAX		10
+ 
++/* Touch vendor ID: GPIO38 (bank 1 bit 6), high = FocalTech */
++#define GT_TPID_DI	GT_DI(1)
++#define GT_TPID		(1u << 6)
++
+ #define GT_GPIO_PA	0x10005000u
+ #define GT_DIR(n)	(0x000u + ((n) * 0x10u))
+ #define GT_DO(n)	(0x100u + ((n) * 0x10u))
+@@ -448,8 +459,12 @@ gt_version_ok(void)
+ 	    rx[11] == 'L' && rx[12] == 'I' && rx[13] == 'N';
+ }
+ 
++/*
++ * Rails, pinmux and the reset pulse are shared by both panels; Goodix then
++ * needs dev_confirm/version, FocalTech its 200 ms firmware boot after reset.
++ */
+ static bool
+-gt_hw_init(void)
++gt_hw_init(bool fts)
+ {
+ 	uint8_t en3 = 0, en2 = 0, v3 = 0, v2 = 0;
+ 	uint32_t v;
+@@ -537,13 +552,16 @@ gt_hw_init(void)
+ 	gt_wr(GT_SPI_DO, (v & ~0x0fu) | GT_CS);
+ 	delay(20);
+ 
+-	/* Reset GPIO15 low 10 ms, high 100 ms. */
++	/* Reset GPIO15 low 10 ms, high 100 ms (FocalTech: 200 ms fw boot). */
+ 	gt_wr(GT_RESET_DIR, gt_rd(GT_RESET_DIR) | GT_RESET);
+ 	gt_wr(GT_RESET_DO, gt_rd(GT_RESET_DO) & ~GT_RESET);
+ 	gt_wait(10);
+ 	gt_wr(GT_RESET_DO, gt_rd(GT_RESET_DO) | GT_RESET);
+-	gt_wait(100);
++	gt_wait(fts ? 200 : 100);
+ 
++	if (fts) {
++		return true;
++	}
+ 	if (!gt_dev_confirm()) {
+ 		printf("SWEET GT: dev_confirm failed\n");
+ 		return false;
+@@ -655,19 +673,193 @@ gt_frame(void)
+ 	return 0;
+ }
+ 
++/*
++ * ---- FocalTech FT3680, V3 SPI protocol (GPL FocalTech focaltech_spi.c) ----
++ *
++ * Read: [reg, 0xa0 (read | data CRC), len_hi, len_lo, 3 dummy] then data and
++ * a CRC-16 (reflected 0x8408, init 0xffff, little-endian) over the data;
++ * rx[3] & 0xa0 must be 0.  Frames over 64 bytes are padded to 4 bytes and
++ * the length field covers the padding.  CS stays high >= 150 us between.
++ *
++ * Touch frame: register 0x01, 63 bytes.  d[1] & 0x0f points, then 6-byte
++ * records from d[2]: XH (event<<6 | x[11:8]), XL, YH (id<<4 | y[11:8]), YL,
++ * pressure, area.  Event 0 down, 1 up, 2 contact; id >= 0x0a ends the list.
++ */
++#define FTS_READ_CMD		0xa0
++#define FTS_DP			(4 + 3)
++#define FTS_CS_HIGH_US		150
++#define FTS_REG_TOUCH		0x01
++#define FTS_REG_CHIP_ID		0xa3
++#define FTS_REG_CHIP_ID2	0x9f
++#define FTS_REG_FW_VER		0xa6
++#define FTS_TOUCH_LEN		63
++#define FTS_MAX_ID		0x0a
++#define FTS_XFER_MAX		80
++#define FTS_LOG_FRAMES		24
++
++static unsigned fts_logged;
++
++static uint16_t
++fts_crc(const uint8_t *p, unsigned n)
++{
++	uint16_t crc = 0xffff;
++	unsigned i;
++	int b;
++
++	for (i = 0; i < n; i++) {
++		crc ^= p[i];
++		for (b = 0; b < 8; b++) {
++			crc = (crc & 1) ? (uint16_t)((crc >> 1) ^ 0x8408)
++			    : (uint16_t)(crc >> 1);
++		}
++	}
++	return crc;
++}
++
++static int
++fts_read(uint8_t reg, uint8_t *data, unsigned len)
++{
++	uint8_t tx[FTS_XFER_MAX], rx[FTS_XFER_MAX];
++	unsigned txlen = FTS_DP + len + 2, dlen = len, i;
++	int attempt;
++
++	if (txlen > 64) {
++		unsigned aligned = (txlen + 3) & ~3u;
++
++		dlen += aligned - txlen;
++		txlen = aligned;
++	}
++	if (txlen > sizeof(tx)) {
++		return EINVAL;
++	}
++	for (i = 0; i < txlen; i++) {
++		tx[i] = 0;
++	}
++	tx[0] = reg;
++	tx[1] = FTS_READ_CMD;
++	tx[2] = (dlen >> 8) & 0xff;
++	tx[3] = dlen & 0xff;
++
++	for (attempt = 0; attempt < 3; attempt++) {
++		spi_xfer(tx, rx, txlen);
++		delay(FTS_CS_HIGH_US);
++		if (rx[3] & 0xa0) {
++			continue;
++		}
++		if (fts_crc(&rx[FTS_DP], dlen) !=
++		    (uint16_t)(rx[FTS_DP + dlen] | (rx[FTS_DP + dlen + 1] << 8))) {
++			continue;
++		}
++		for (i = 0; i < len; i++) {
++			data[i] = rx[FTS_DP + i];
++		}
++		return 0;
++	}
++	return EIO;
++}
++
++static bool
++fts_probe(void)
++{
++	uint8_t id = 0, id2 = 0, fw = 0;
++	int i;
++
++	for (i = 0; i < 10; i++) {
++		if (fts_read(FTS_REG_CHIP_ID, &id, 1) == 0 && id != 0x00 && id != 0xff) {
++			(void)fts_read(FTS_REG_CHIP_ID2, &id2, 1);
++			(void)fts_read(FTS_REG_FW_VER, &fw, 1);
++			printf("SWEET FTS: chip id %02x/%02x fw %02x, ready\n", id, id2, fw);
++			return true;
++		}
++		gt_wait(100);
++	}
++	printf("SWEET FTS: no chip id (last %02x)\n", id);
++	return false;
++}
++
++static int
++fts_frame(void)
++{
++	uint8_t d[FTS_TOUCH_LEN];
++	uint32_t mask = 0, n;
++	int i;
++
++	if (fts_read(FTS_REG_TOUCH, d, sizeof(d)) != 0) {
++		return EIO;
++	}
++	if (d[1] == 0xff && d[2] == 0xff && d[3] == 0xff) {
++		return EAGAIN;	/* firmware not ready / ESD pattern */
++	}
++	n = d[1] & 0x0f;
++	if (n > GT_MAX) {
++		return EIO;
++	}
++	/* The first frames with fingers go to the log to confirm the layout. */
++	if (n && fts_logged < FTS_LOG_FRAMES) {
++		fts_logged++;
++		printf("SWEET FTS: raw n=%u %02x %02x | %02x %02x %02x %02x %02x %02x"
++		    " | %02x %02x %02x %02x %02x %02x\n", n, d[0], d[1],
++		    d[2], d[3], d[4], d[5], d[6], d[7],
++		    d[8], d[9], d[10], d[11], d[12], d[13]);
++	}
++
++	for (i = 0; i < GT_MAX; i++) {
++		const uint8_t *p = &d[2 + 6 * i];
++		uint32_t id = p[2] >> 4, ev = p[0] >> 6, x, y;
++
++		if (id >= FTS_MAX_ID) {
++			break;
++		}
++		if (ev == 1 || (mask & (1u << id))) {
++			continue;	/* lifted, or a duplicate id */
++		}
++		x = ((uint32_t)(p[0] & 0x0f) << 8) | p[1];
++		y = ((uint32_t)(p[2] & 0x0f) << 8) | p[3];
++		if (x > 1079) {
++			x = 1079;
++		}
++		if (y > 2399) {
++			y = 2399;
++		}
++		mask |= 1u << id;
++		gt.x[id] = (int)x;
++		gt.y[id] = (int)y;
++	}
++
++	for (i = 0; i < GT_MAX; i++) {
++		if (mask & (1u << i)) {
++			sweet_hid_touch(i, 1, gt.x[i], gt.y[i]);
++		} else if (gt.active & (1u << i)) {
++			sweet_hid_touch(i, 0, gt.x[i], gt.y[i]);
++		}
++	}
++	gt.active = mask;
++	return 0;
++}
++
+ static void
+ gt_thread(void *arg, wait_result_t wr)
+ {
+-	int bad = 0;
++	int bad = 0, mode = 0;
++	bool tpid, fts;
+ 
+ 	(void)arg;
+ 	(void)wr;
+ 
+-	if (!gt_hw_init()) {
++	(void)PE_parse_boot_argn("sweettp", &mode, sizeof(mode));
++	tpid = (gt_rd(GT_TPID_DI) & GT_TPID) != 0;
++	fts = mode == 2 || (mode != 1 && tpid);
++	printf("SWEET GT: panel id GPIO38=%d mode(4)=%x -> %s\n", tpid ? 1 : 0,
++	    (gt_rd(GT_MODE(4)) >> 24) & 0xf, fts ? "FocalTech" : "Goodix");
++
++	if (!gt_hw_init(fts)) {
++		goto out;
++	}
++	if (fts && !fts_probe()) {
+ 		goto out;
+ 	}
+ 	for (;;) {
+-		if (gt_frame() != 0) {
++		if ((fts ? fts_frame() : gt_frame()) != 0) {
+ 			if (++bad >= 50) {
+ 				gt_release_all();
+ 				bad = 0;
+@@ -684,6 +876,103 @@ out:
+ 	thread_block(THREAD_CONTINUE_NULL);
+ }
+ 
++/*
++ * ---- MTK keypad (mediatek,kp @ 0x10010000) ----
++ *
++ * KP_MEM1..5 hold the debounced matrix, one 16-bit word each, bit clear =
++ * pressed; hardware key n is MEM(n / 16) bit (n % 16).  ruby's live FDT:
++ * kpd-hw-init-map[0] = 114 (volume down), kpd-hw-pwrkey = 8 (116 power),
++ * kpd-hw-rstkey = 17 (115 volume up).  Every changed bit is logged so an
++ * unexpected layout shows up in sweetlog.  Read-only; LK leaves it running.
++ */
++#define KP_PA		0x10010000u
++#define KP_MEM(i)	(0x04u + (i) * 4u)
++#define KP_NMEM		5
++
++static const struct {
++	unsigned bit;
++	int key;	/* sweet_hid_key: 0 power, 1 volume up, 2 volume down */
++} kp_map[] = {
++	{ 0, 2 }, { 8, 0 }, { 17, 1 },
++};
++
++static int kp_sleep_chan;
++
++static void
++kp_thread(void *arg, wait_result_t wr)
++{
++	vm_offset_t kp;
++	uint32_t prev[KP_NMEM], cur, diff;
++	uint64_t deadline;
++	unsigned i, j, k;
++
++	(void)arg;
++	(void)wr;
++
++	kp = ml_io_map(KP_PA, 0x1000);
++	if (!kp) {
++		printf("SWEET KEYS: keypad mapping failed\n");
++		goto out;
++	}
++	for (i = 0; i < KP_NMEM; i++) {
++		prev[i] = *(volatile uint32_t *)(kp + KP_MEM(i)) & 0xffff;
++	}
++	printf("SWEET KEYS: keypad mem %04x %04x %04x %04x %04x, polling\n",
++	    prev[0], prev[1], prev[2], prev[3], prev[4]);
++
++	for (;;) {
++		for (i = 0; i < KP_NMEM; i++) {
++			cur = *(volatile uint32_t *)(kp + KP_MEM(i)) & 0xffff;
++			diff = cur ^ prev[i];
++			for (j = 0; diff && j < 16; j++) {
++				unsigned bit = i * 16 + j;
++				int down = !(cur & (1u << j)), key = -1;
++
++				if (!(diff & (1u << j))) {
++					continue;
++				}
++				for (k = 0; k < sizeof(kp_map) / sizeof(kp_map[0]); k++) {
++					if (kp_map[k].bit == bit) {
++						key = kp_map[k].key;
++					}
++				}
++				printf("SWEET KEYS: kp bit %u %s%s\n", bit,
++				    down ? "down" : "up", key < 0 ? " (unmapped)" : "");
++				if (key >= 0) {
++					sweet_hid_key(key, down);
++				}
++			}
++			prev[i] = cur;
++		}
++		clock_interval_to_deadline(20, NSEC_PER_MSEC, &deadline);
++		(void)assert_wait_deadline(&kp_sleep_chan, THREAD_UNINT, deadline);
++		thread_block(THREAD_CONTINUE_NULL);
++	}
++
++out:
++	(void)thread_terminate(current_thread());
++	thread_block(THREAD_CONTINUE_NULL);
++}
++
++static void
++kp_init(void)
++{
++	int enabled = 1;
++	thread_t thread;
++	kern_return_t kr;
++
++	if (PE_parse_boot_argn("sweetkeys", &enabled, sizeof(enabled)) && !enabled) {
++		printf("SWEET KEYS: disabled (sweetkeys=0)\n");
++		return;
++	}
++	kr = kernel_thread_start(kp_thread, NULL, &thread);
++	if (kr == KERN_SUCCESS) {
++		thread_deallocate(thread);
++	} else {
++		printf("SWEET KEYS: thread start failed %d\n", kr);
++	}
++}
++
+ void
+ sweet_goodix_spi_init(void)
+ {
+@@ -695,6 +984,7 @@ sweet_goodix_spi_init(void)
+ 		return;
+ 	}
+ 	gt.started = true;
++	kp_init();
+ 
+ 	if (PE_parse_boot_argn("sweetgt", &enabled, sizeof(enabled)) && !enabled) {
+ 		printf("SWEET GT: disabled (sweetgt=0)\n");

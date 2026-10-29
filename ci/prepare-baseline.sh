@@ -80,10 +80,14 @@ else
         --expect-root "$BASELINE_MANIFEST_SHA256" --expect-count "$BASELINE_FILES"
 fi
 
-if [ "$RUBY_SET" = "0085" ]; then
+if [ "$RUBY_SET" = "0085" ] || [ "$RUBY_SET" = "input" ]; then
 cp "$ROOT/patches/0080-ruby-ufs.patch" "$ROOT/patches/0084-ruby-autoswipe.patch" \
     "$ROOT/patches/0085-ruby-goodix-spi.patch" \
     "$DEST/xnu/patches/"
+# input: + 0142 FocalTech FT3680 touch and MTK keypad buttons
+if [ "$RUBY_SET" = "input" ]; then
+    cp "$ROOT/patches/0142-ruby-fts-touch-keys.patch" "$DEST/xnu/patches/"
+fi
 else
 cp "$ROOT/patches/0080-ruby-ufs.patch" "$ROOT/patches/0084-ruby-autoswipe.patch" \
     "$ROOT/patches/0085-ruby-goodix-spi.patch" \
