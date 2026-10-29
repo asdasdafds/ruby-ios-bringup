@@ -1,11 +1,12 @@
-name: xnu-0085
+name: xnu-0087
 
-# Reproduces the kernel that first provided real Goodix touch (harness commit
-# 8716a06) without vendoring the upstream tree. ci/prepare-baseline.sh fetches
-# the pinned commit, removes the topaz patches, adds this project's patches,
-# applies the small 0010/0012 change, and verifies the canonical patchset hash.
-# ci/kernel_hash.py then gates the built kernel's executable/data segments
-# against the booted artifact's hash.
+# Builds the ruby kernel without vendoring the upstream tree.
+# ci/prepare-baseline.sh takes a content-pinned 82-file baseline (private
+# mirror; ALLOW_PUBLIC_UPSTREAM=1 is the external fallback), adds this
+# project's patches, applies the small 0010/0012 change, and verifies the
+# canonical patchset hash. ci/kernel_hash.py records the built kernel's
+# segments; it gates against a booted reference only when the branch's
+# config/*.env provides one.
 
 on:
   workflow_dispatch:
@@ -38,9 +39,12 @@ permissions:
   contents: read
 
 env:
-  BASE_REPO: https://github.com/MakrSas/ios-topaz.git
-  BASE_SHA: 5095ac19dbdcf37b64b81fe443f4027ad51b84bf
-  PATCHSET_SHA256: cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f
+  # Content pin of the 82-file sweet 0001-0079 baseline (see ci/README.md).
+  # The repo/ref/key live in Actions secrets: BASELINE_REPO, BASELINE_REF,
+  # BASELINE_SSH_KEY. The public pin is the manifest root, not a URL.
+  BASELINE_MANIFEST_SHA256: 829d759826607027bc4a1d9818b6dd4956a312a087217b6ce7e5ce31fa3ae910
+  BASELINE_FILES: "82"
+  PATCHSET_SHA256: 27894e7b274ea57131b5ee57799eb13c1ca2ddd7a6d9e38c15468cdd0dd55ce9
   DXB_REPO: https://github.com/blacktop/darwin-xnu-build
   DXB_SHA: 663906528d1cd5ea8fde7de6f16de73db9511549
   MACOS_VERSION: ${{ inputs.macos_version || '13.5' }}
@@ -63,7 +67,18 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Fetch private baseline
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ secrets.BASELINE_REPO }}
+          ref: ${{ secrets.BASELINE_REF }}
+          ssh-key: ${{ secrets.BASELINE_SSH_KEY }}
+          path: baseline-src
+          persist-credentials: false
+
       - name: Prepare pinned baseline
+        env:
+          BASELINE_DIR: baseline-src
         run: |
           sh ci/prepare-baseline.sh base
 
@@ -113,7 +128,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ github.workspace }}/.ccache
-          key: ccache-${{ env.MACHINE_CONFIG }}-${{ env.KERNEL_CONFIG }}-${{ hashFiles('ci/**', 'patches/**', 'config/0085.env', '.github/workflows/xnu.yml') }}
+          key: ccache-${{ env.MACHINE_CONFIG }}-${{ env.KERNEL_CONFIG }}-${{ hashFiles('ci/**', 'patches/**', 'config/0087.env', '.github/workflows/xnu.yml') }}
           restore-keys: |
             ccache-${{ env.MACHINE_CONFIG }}-${{ env.KERNEL_CONFIG }}-
 
@@ -186,9 +201,14 @@ jobs:
             echo "kernel missing; hash gate skipped"
             exit 0
           fi
-          . config/0085.env
-          python3 ci/kernel_hash.py --expect-exec-data "$KERNEL_EXPECT_EXEC_DATA" \
-            out/kernel.development.sweet | tee out/kernel-hashes.txt
+          . config/0087.env
+          if [ -n "${KERNEL_EXPECT_EXEC_DATA:-}" ]; then
+            python3 ci/kernel_hash.py --expect-exec-data "$KERNEL_EXPECT_EXEC_DATA" \
+              out/kernel.development.sweet | tee out/kernel-hashes.txt
+          else
+            echo "no booted reference yet; recording kernel hashes"
+            python3 ci/kernel_hash.py out/kernel.development.sweet | tee out/kernel-hashes.txt
+          fi
 
       - name: Provenance
         if: always()
@@ -200,8 +220,10 @@ jobs:
             patches=$(ls base/xnu/patches/*.patch 2>/dev/null | wc -l)
           fi
           {
-            echo "base_repo=$BASE_REPO"
-            echo "base_sha=$BASE_SHA"
+            echo "baseline_manifest=$BASELINE_MANIFEST_SHA256"
+            echo "baseline_files=$BASELINE_FILES"
+            echo "baseline_upstream=ios-topaz@5095ac19dbdcf37b64b81fe443f4027ad51b84bf"
+            echo "apple_xnu=xnu-8796.141.3"
             echo "patchset_sha256=$patchset"
             echo "dxb_repo=$DXB_REPO"
             echo "dxb_sha=$DXB_SHA"

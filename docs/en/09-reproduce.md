@@ -7,7 +7,7 @@
 
 The kernel build is reproducible. The boot image and the iOS root are not fully
 self-contained here: Apple's userland is not distributable, and the 0085/0084
-images used the upstream shim/loader/ADT builder, which is not vendored. This chapter
+images used the upstream shim/loader/ADT builder, which is not included as source. This chapter
 states what you can reproduce from this repo and what you must supply.
 
 ## What you must supply
@@ -20,24 +20,41 @@ states what you can reproduce from this repo and what you must supply.
 
 ## Build the kernel
 
-`.github/workflows/xnu.yml` runs `ci/prepare-baseline.sh`. The recipe fetches
-the pinned baseline, removes the topaz patches, adds this project's patches,
-applies the small 0010/0012 change, normalizes line endings, and refuses to
-build unless the canonical patchset hash matches.
+`.github/workflows/xnu.yml` runs `ci/prepare-baseline.sh`. The recipe takes the
+82-file baseline (private mirror; `ALLOW_PUBLIC_UPSTREAM=1` is the external
+fallback), verifies the manifest root, adds this project's patches, applies the
+small 0010/0012 change, normalizes line endings, and refuses to build unless
+the canonical patchset hash matches. See
+[`11-ci-baseline.md`](11-ci-baseline.md) for the mirror/secrets boundary.
+For the public fallback, run
+`ALLOW_PUBLIC_UPSTREAM=1 sh ci/prepare-baseline.sh <dest>`.
 
 ```text
-base:     MakrSas/ios-topaz @ 5095ac19dbdcf37b64b81fe443f4027ad51b84bf
-recipe:   ci/prepare-baseline.sh (no upstream tree vendored)
-patchset: cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f
-exec-data: e4823afb97360e24708184d09c0dc6c9f7280e33d5c4aefbeb901b3fa9b11e3e
+apple:    apple-oss-distributions/xnu @ xnu-8796.141.3 (f625db25...)
+baseline: 82 files (sweet 0001-0079), manifest root 829d7598...
+recipe:   ci/prepare-baseline.sh (no upstream tree copied here)
+patchset: 27894e7b... (main, 137 files)
+          USB branch: 29449e32... (135 files), config/0131b.env
 dxb:      blacktop/darwin-xnu-build @ 663906528d1cd5ea8fde7de6f16de73db9511549
 runner:   macos-14, Xcode 15.0.1, macOS 13.5 xnu
 config:   DEVELOPMENT, MACHINE_CONFIG=SWEET, -mcpu=cortex-a55
 ```
 
-Run it from **Actions → xnu-0085 → Run workflow**, or push a change under
-`ci/`, `patches/`, `config/` or the workflow. Artifacts: `xnu-kernel` and
+Main builds the ramdisk/0140 set and includes the USB series through 0131b.
+The 0086/0085 references below are historical.
+
+Run it from **Actions → xnu → Run workflow**, or push a change under `ci/`,
+`patches/`, `config/` or the workflow. Artifacts: `xnu-kernel` and
 `xnu-buildtree`.
+
+## Rescue root (2026-10-29)
+
+The ramdisk line adds a 4 MB HFS+ root in the LK ramdisk slot. The kernel imports
+it with `rubyrdsz=` and mounts it as `md0`; PID 1 runs `/etc/rc` and the
+applets in-process, so the minimal root does not depend on launchd or
+fork/exec. The rescue image (`6795d9e4...`) and the root are external; the B1
+image is `49a10e49...`. The full Unix/iOS environment stays on the UFS iOS
+root.
 
 ## Host pipeline
 
@@ -138,7 +155,8 @@ The 0084 synthetic-swipe milestone uses `config/0084-boot.cmdline` with
   separately instrumented. The 0084 synthetic swipe also unlocks.
 - Black wallpaper, `Waiting...` widgets and a Messages badge may remain.
 - Real touch works with the 0085 kernel (bottom-edge unlock, two-contact
-  dispatch, edge). Keys, USB, Wi-Fi, GPU and RTC are not implemented.
+  dispatch, edge). Keys, Wi-Fi, GPU and RTC are not implemented; USB is a probe
+  only (0131b), not a usable interface.
 - Pre-boot image hashes are fixed; post-boot live-root/ring/log hashes and
   timing are volatile (see the "Hash stability" section of `GUARANTEE.md`).
 
