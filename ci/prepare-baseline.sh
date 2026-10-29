@@ -25,6 +25,9 @@ BASE_REPO=${BASE_REPO:-https://github.com/MakrSas/ios-topaz.git}
 BASE_SHA=${BASE_SHA:-5095ac19dbdcf37b64b81fe443f4027ad51b84bf}
 PATCHSET_SHA256=${PATCHSET_SHA256:-27894e7b274ea57131b5ee57799eb13c1ca2ddd7a6d9e38c15468cdd0dd55ce9}
 PYTHON=${PYTHON:-python3}
+# RUBY_SET=0085: only 0080/0084/0085 (+ historical 0081-0083), the 88-file
+# set that booted with real touch (config/0085.env PATCHSET_SHA256).
+RUBY_SET=${RUBY_SET:-main}
 DEST=${1:-baseline}
 
 if [ -e "$DEST" ]; then
@@ -77,6 +80,11 @@ else
         --expect-root "$BASELINE_MANIFEST_SHA256" --expect-count "$BASELINE_FILES"
 fi
 
+if [ "$RUBY_SET" = "0085" ]; then
+cp "$ROOT/patches/0080-ruby-ufs.patch" "$ROOT/patches/0084-ruby-autoswipe.patch" \
+    "$ROOT/patches/0085-ruby-goodix-spi.patch" \
+    "$DEST/xnu/patches/"
+else
 cp "$ROOT/patches/0080-ruby-ufs.patch" "$ROOT/patches/0084-ruby-autoswipe.patch" \
     "$ROOT/patches/0085-ruby-goodix-spi.patch" \
     "$ROOT/patches/0086-ruby-usb-p0.patch" \
@@ -129,6 +137,7 @@ cp "$ROOT/patches/0080-ruby-ufs.patch" "$ROOT/patches/0084-ruby-autoswipe.patch"
     "$ROOT/patches/0140-ruby-ramdisk-import.patch" \
     "$ROOT/patches/0141-ruby-usb-decouple.patch" \
     "$DEST/xnu/patches/"
+fi
 cp "$ROOT/patches/historical/0081-ruby-swap-debug.patch" \
     "$ROOT/patches/historical/0082-ruby-wifi-stub.patch" \
     "$ROOT/patches/historical/0083-ruby-iokit-match-trace.patch" \

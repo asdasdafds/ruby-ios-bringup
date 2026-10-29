@@ -23,8 +23,13 @@ on:
       keep_going:
         description: make -k (collect all compile errors in one run)
         default: "true"
+      patchset:
+        description: 0085 = 88-file real-touch kernel (hash-gated); main = full 137-file set
+        type: choice
+        options: ["0085", "main"]
+        default: "0085"
   push:
-    branches: [main]
+    branches: [main, public-baseline]
     paths:
       - "ci/**"
       - "patches/**"
@@ -40,11 +45,13 @@ permissions:
 
 env:
   # Content pin of the 82-file sweet 0001-0079 baseline (see ci/README.md).
-  # The repo/ref/key live in Actions secrets: BASELINE_REPO, BASELINE_REF,
-  # BASELINE_SSH_KEY. The public pin is the manifest root, not a URL.
+  # This fork has no private mirror: the baseline comes from the public
+  # ios-topaz fallback (ALLOW_PUBLIC_UPSTREAM=1), verified by the same root.
   BASELINE_MANIFEST_SHA256: 829d759826607027bc4a1d9818b6dd4956a312a087217b6ce7e5ce31fa3ae910
   BASELINE_FILES: "82"
-  PATCHSET_SHA256: 27894e7b274ea57131b5ee57799eb13c1ca2ddd7a6d9e38c15468cdd0dd55ce9
+  RUBY_SET: ${{ inputs.patchset || '0085' }}
+  PATCHSET_SHA256: ${{ (inputs.patchset || '0085') == '0085' && 'cf4008e309cfa566e3df968592a2d3f3224a9b3d0813d6054326115fecc0a03f' || '27894e7b274ea57131b5ee57799eb13c1ca2ddd7a6d9e38c15468cdd0dd55ce9' }}
+  RUBY_ENV: ${{ (inputs.patchset || '0085') == '0085' && 'config/0085.env' || 'config/0087.env' }}
   DXB_REPO: https://github.com/blacktop/darwin-xnu-build
   DXB_SHA: 663906528d1cd5ea8fde7de6f16de73db9511549
   MACOS_VERSION: ${{ inputs.macos_version || '13.5' }}
@@ -67,18 +74,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Fetch private baseline
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          repository: ${{ secrets.BASELINE_REPO }}
-          ref: ${{ secrets.BASELINE_REF }}
-          ssh-key: ${{ secrets.BASELINE_SSH_KEY }}
-          path: baseline-src
-          persist-credentials: false
-
-      - name: Prepare pinned baseline
+      - name: Prepare pinned baseline (public upstream)
         env:
-          BASELINE_DIR: baseline-src
+          ALLOW_PUBLIC_UPSTREAM: "1"
         run: |
           sh ci/prepare-baseline.sh base
 
@@ -128,9 +126,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ github.workspace }}/.ccache
-          key: ccache-${{ env.MACHINE_CONFIG }}-${{ env.KERNEL_CONFIG }}-${{ hashFiles('ci/**', 'patches/**', 'config/0087.env', '.github/workflows/xnu.yml') }}
+          key: ccache-${{ env.RUBY_SET }}-${{ env.MACHINE_CONFIG }}-${{ env.KERNEL_CONFIG }}-${{ hashFiles('ci/**', 'patches/**', 'config/0087.env', '.github/workflows/xnu.yml') }}
           restore-keys: |
-            ccache-${{ env.MACHINE_CONFIG }}-${{ env.KERNEL_CONFIG }}-
+            ccache-${{ env.RUBY_SET }}-${{ env.MACHINE_CONFIG }}-${{ env.KERNEL_CONFIG }}-
 
       - name: Build
         working-directory: dxb
@@ -201,7 +199,7 @@ jobs:
             echo "kernel missing; hash gate skipped"
             exit 0
           fi
-          . config/0087.env
+          . "$RUBY_ENV"
           if [ -n "${KERNEL_EXPECT_EXEC_DATA:-}" ]; then
             python3 ci/kernel_hash.py --expect-exec-data "$KERNEL_EXPECT_EXEC_DATA" \
               out/kernel.development.sweet | tee out/kernel-hashes.txt
@@ -225,6 +223,7 @@ jobs:
             echo "baseline_upstream=ios-topaz@5095ac19dbdcf37b64b81fe443f4027ad51b84bf"
             echo "apple_xnu=xnu-8796.141.3"
             echo "patchset_sha256=$patchset"
+            echo "ruby_set=$RUBY_SET"
             echo "dxb_repo=$DXB_REPO"
             echo "dxb_sha=$DXB_SHA"
             echo "macos_version=$MACOS_VERSION"
